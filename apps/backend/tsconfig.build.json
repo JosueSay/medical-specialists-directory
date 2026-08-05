@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Solo el build emite: fija donde salen los archivos y cual es la raiz
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  // tsc-alias reescribe los alias "@/..." a rutas relativas reales dentro de dist,
+  // que es lo que permite ejecutar el resultado con node sin loaders extra
+  "tsc-alias": {
+    "resolveFullPaths": true,
+    "verbose": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["tests/**/*", "**/*.test.ts"]
+}

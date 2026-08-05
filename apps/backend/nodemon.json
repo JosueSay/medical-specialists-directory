@@ -1,0 +1,12 @@
+{
+  "watch": ["src", "../../packages/contracts/dist", "../../config"],
+  "ext": "ts,json",
+  "ignore": ["src/**/*.test.ts", "dist", "node_modules"],
+  "exec": "tsx src/index.ts",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "legacyWatch": true,
+  "pollingInterval": 300,
+  "delay": 300
+}
