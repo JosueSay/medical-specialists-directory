@@ -43,9 +43,14 @@ export function buildEndpointUrl(baseUrl: string, endpoint: EndpointName): strin
 // --- Request ---------------------------------------------------------------
 
 export interface CreatePlaceImportRequest {
+  /**
+   * Consulta exacta que se envia a Places API. Se conserva en cada registro
+   * como `sourceKeyword`: es la evidencia de que `specialty` y `zone` fueron
+   * declarados por el operador y no deducidos de la direccion.
+   */
+  keyword: string;
   specialty: Specialty;
   zone: string;
-  city?: string;
 }
 
 export interface ListPlacesQuery {
@@ -61,8 +66,10 @@ export interface ListPlacesQuery {
 export type CreatePlaceImportResponse = SuccessResponse<PlaceImportSummaryDto>;
 export type ListPlacesResponse = PaginatedResponse<PlaceDto>;
 export type ListSpecialtiesResponse = SuccessResponse<SpecialtyDto[]>;
-export type HealthResponse = SuccessResponse<{
-  status: 'ok';
-  environment: string;
-  version: string;
-}>;
+/**
+ * `/health` esta exento del middleware de whitelist, porque la comprobacion se
+ * origina dentro del contenedor con una IP interna que nunca estara autorizada.
+ * Por eso no revela entorno, version ni estado de dependencias: un endpoint sin
+ * control de origen no debe permitir inferir nada del sistema.
+ */
+export type HealthResponse = SuccessResponse<{ status: 'ok' }>;

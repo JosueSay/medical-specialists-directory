@@ -1,3 +1,5 @@
+import { isErrorCode } from './responseCodes.js';
+
 /**
  * Envoltura de respuesta HTTP compartida por toda la API.
  * El formato es fijo: `code` es la clave que el frontend traduce, `message` es
@@ -44,7 +46,16 @@ export interface ErrorResponse {
 
 export type ApiResponse<TData = undefined> = SuccessResponse<TData> | ErrorResponse;
 
-/** Discrimina una respuesta de error sin depender del status HTTP. */
+/**
+ * Discrimina una respuesta de error sin depender del status HTTP.
+ *
+ * La decision se toma sobre el `code`, que es el unico campo presente en toda
+ * respuesta y cuyo valor pertenece a un catalogo cerrado. No se usa la ausencia
+ * de `data`: una respuesta exitosa puede no traer datos (el contrato indica que
+ * `data` se omite cuando no hay nada que devolver) y quedaria clasificada como
+ * error. La presencia de `errors` se acepta como senal adicional para no
+ * depender de que el catalogo este completo.
+ */
 export function isErrorResponse(response: ApiResponse<unknown>): response is ErrorResponse {
-  return 'errors' in response || !('data' in response);
+  return isErrorCode(response.code) || 'errors' in response;
 }
