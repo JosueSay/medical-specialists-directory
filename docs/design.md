@@ -71,7 +71,7 @@ El sistema debe:
 
 El proyecto vive en un **monorepo** con workspaces de pnpm, y no en repositorios separados de backend y frontend como indica el estándar de repositorios del equipo.
 
-```
+```bash
 apps/backend        API HTTP y capas de dominio, aplicacion e infraestructura
 apps/frontend       UI minima de consulta
 packages/contracts  Tipos y contratos compartidos entre backend y frontend
@@ -839,7 +839,7 @@ El ejemplo que trae el enunciado, `cardiólogo zona 10 Guatemala`, usa precisame
 
 ### Plantilla de keyword
 
-```
+```bash
 textQuery      = "{término} zona {zona} Guatemala"
 includedType   = doctor | hospital
 strictTypeFiltering = true
@@ -917,7 +917,7 @@ Consecuencia directa: como `phoneNumber` y `website` son obligatorios por enunci
 
 Field mask que usa el adaptador, sin campos que no se persisten:
 
-```
+```bash
 places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.nextPageToken
 ```
 

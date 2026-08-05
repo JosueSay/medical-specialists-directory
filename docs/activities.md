@@ -192,7 +192,7 @@ Reglas que sustituyen la protección que daba el Pull Request:
 
 Conventional Commits, en español y sin punto final:
 
-```
+```bash
 <tipo>[alcance opcional]: <descripcion breve en imperativo>
 
 [body opcional]
