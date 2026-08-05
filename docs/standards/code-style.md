@@ -11,15 +11,15 @@ Mezclar idiomas dentro de un mismo identificador (`listaDePlaces`, `getEspeciali
 
 ## Nomenclatura de archivos y carpetas
 
-| Elemento | Convención | Ejemplo |
-| :--- | :--- | :--- |
-| Carpetas | kebab-case, plural cuando agrupan | `controllers/`, `ports/` |
-| Archivos TypeScript | camelCase | `listPlacesUseCase.ts` |
-| Componentes React | PascalCase | `PlacesTable.tsx` |
-| Archivos de prueba | mismo nombre más `.test` | `listPlacesUseCase.test.ts` |
-| Hojas de estilo | kebab-case | `main-layout.css` |
-| Documentos Markdown | kebab-case | `development-setup.md` |
-| JSON de configuración | camelCase | `appConfig.json` |
+| Elemento                 | Convención                         | Ejemplo                              |
+| :----------------------- | :--------------------------------- | :----------------------------------- |
+| Carpetas                 | kebab-case, plural cuando agrupan  | `controllers/`, `ports/`             |
+| Archivos TypeScript      | camelCase                          | `listPlacesUseCase.ts`               |
+| Componentes React        | PascalCase                         | `PlacesTable.tsx`                    |
+| Archivos de prueba       | mismo nombre más `.test`           | `listPlacesUseCase.test.ts`          |
+| Hojas de estilo          | kebab-case                         | `main-layout.css`                    |
+| Documentos Markdown      | kebab-case                         | `development-setup.md`               |
+| JSON de configuración    | camelCase                          | `appConfig.json`                     |
 | Archivos de herramientas | el nombre que exija la herramienta | `eslint.config.js`, `vite.config.ts` |
 
 Ningún nombre lleva espacios, acentos ni caracteres especiales.
@@ -28,14 +28,14 @@ El nombre del archivo describe lo que exporta. Un archivo llamado `utils.ts` o `
 
 ## Nomenclatura de símbolos
 
-| Elemento | Convención | Ejemplo |
-| :--- | :--- | :--- |
-| Clases e interfaces | PascalCase | `FirestorePlacesRepository`, `PlacesProvider` |
-| Funciones y métodos | camelCase, empiezan con verbo | `findByZone`, `upsertMany` |
-| Variables | camelCase | `pageSize`, `collectedAt` |
-| Constantes de configuración | UPPER_SNAKE_CASE | `PLACES_MAX_RESULTS` |
-| Tipos y enums | PascalCase | `PlaceFilters`, `Freshness` |
-| Booleanos | prefijo `is`, `has`, `should` | `isStale`, `hasWebsite` |
+| Elemento                    | Convención                    | Ejemplo                                       |
+| :-------------------------- | :---------------------------- | :-------------------------------------------- |
+| Clases e interfaces         | PascalCase                    | `FirestorePlacesRepository`, `PlacesProvider` |
+| Funciones y métodos         | camelCase, empiezan con verbo | `findByZone`, `upsertMany`                    |
+| Variables                   | camelCase                     | `pageSize`, `collectedAt`                     |
+| Constantes de configuración | UPPER_SNAKE_CASE              | `PLACES_MAX_RESULTS`                          |
+| Tipos y enums               | PascalCase                    | `PlaceFilters`, `Freshness`                   |
+| Booleanos                   | prefijo `is`, `has`, `should` | `isStale`, `hasWebsite`                       |
 
 Sufijos que indican rol, y deben usarse de forma consistente:
 

@@ -17,7 +17,7 @@ services:
       BACKEND_PORT: ${BACKEND_PORT:-4000}
       FIRESTORE_EMULATOR_HOST: ${FIRESTORE_EMULATOR_HOST:-}
     ports:
-      - "${BACKEND_PORT:-4000}:${BACKEND_PORT:-4000}"
+      - '${BACKEND_PORT:-4000}:${BACKEND_PORT:-4000}'
     volumes:
       # Codigo montado desde el host para hot reload
       - ./apps/backend/src:/app/apps/backend/src
@@ -36,9 +36,9 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "node",
-          "-e",
+          'CMD',
+          'node',
+          '-e',
           "fetch('http://127.0.0.1:'+(process.env.BACKEND_PORT||4000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
@@ -76,7 +76,7 @@ services:
       VITE_DEFAULT_THEME: ${VITE_DEFAULT_THEME:-system}
       VITE_DEFAULT_PAGE_SIZE: ${VITE_DEFAULT_PAGE_SIZE:-10}
     ports:
-      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
+      - '${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}'
     volumes:
       - ./apps/frontend/src:/app/apps/frontend/src
       - ./apps/frontend/tests:/app/apps/frontend/tests
@@ -107,8 +107,8 @@ services:
     environment:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-msd}
     ports:
-      - "${FIRESTORE_EMULATOR_PORT:-8080}:8080"
-      - "${FIREBASE_EMULATOR_UI_PORT:-4001}:4001"
+      - '${FIRESTORE_EMULATOR_PORT:-8080}:8080'
+      - '${FIREBASE_EMULATOR_UI_PORT:-4001}:4001'
     volumes:
       - ./firebase.json:/app/firebase.json:ro
       - ./firestore.rules:/app/firestore.rules:ro

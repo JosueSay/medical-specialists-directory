@@ -4,12 +4,12 @@ Proyecto académico del curso CC3106 Responsible AI de la Universidad del Valle 
 
 ## Documentación
 
-| Documento                                              | Contenido                                                                                |
-| :----------------------------------------------------- | :--------------------------------------------------------------------------------------- |
-| [docs/statement.md](docs/statement.md)                 | Enunciado del curso y desviaciones asumidas por el equipo                                |
-| [docs/design.md](docs/design.md)                       | Diseño del sistema: requisitos, arquitectura, contratos, modelo de datos y postura ética |
-| [docs/activities.md](docs/activities.md)               | Reparto de trabajo por persona y cronograma por semana                                   |
-| [docs/development-setup.md](docs/development-setup.md) | Entorno de desarrollo: puesta en marcha, estructura, configuración y pruebas             |
+| Documento                                              | Contenido                                                                                 |
+| :----------------------------------------------------- | :---------------------------------------------------------------------------------------- |
+| [docs/statement.md](docs/statement.md)                 | Enunciado del curso y desviaciones asumidas por el equipo                                 |
+| [docs/design.md](docs/design.md)                       | Diseño del sistema: requisitos, arquitectura, contratos, modelo de datos y postura ética  |
+| [docs/activities.md](docs/activities.md)               | Reparto de trabajo por persona y cronograma por semana                                    |
+| [docs/development-setup.md](docs/development-setup.md) | Entorno de desarrollo: puesta en marcha, estructura, configuración y pruebas              |
 | [docs/standards/](docs/standards/README.md)            | Estándares del equipo: arquitectura, API, código, Git, seguridad, pruebas y documentación |
 
 ## Puesta en marcha

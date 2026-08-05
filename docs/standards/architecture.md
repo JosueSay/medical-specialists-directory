@@ -14,12 +14,12 @@ La infraestructura apunta hacia el dominio porque **implementa** sus interfaces,
 
 ## Qué va en cada capa
 
-| Capa | Carpeta | Contiene | Nunca contiene |
-| :--- | :--- | :--- | :--- |
-| Interfaces | `src/interfaces` | Controladores HTTP, middlewares, validación de entrada | Reglas de negocio |
-| Aplicación | `src/application` | Casos de uso, orquestación | Referencias a Firestore, HTTP o Google |
-| Dominio | `src/domain` | Entidades, puertos, políticas de negocio | Cualquier librería externa |
-| Infraestructura | `src/infrastructure` | Adaptadores de Firestore y Places API | Decisiones de negocio |
+| Capa            | Carpeta              | Contiene                                               | Nunca contiene                         |
+| :-------------- | :------------------- | :----------------------------------------------------- | :------------------------------------- |
+| Interfaces      | `src/interfaces`     | Controladores HTTP, middlewares, validación de entrada | Reglas de negocio                      |
+| Aplicación      | `src/application`    | Casos de uso, orquestación                             | Referencias a Firestore, HTTP o Google |
+| Dominio         | `src/domain`         | Entidades, puertos, políticas de negocio               | Cualquier librería externa             |
+| Infraestructura | `src/infrastructure` | Adaptadores de Firestore y Places API                  | Decisiones de negocio                  |
 
 ## Puertos y adaptadores
 
@@ -68,7 +68,9 @@ Una regla de negocio que se consulta desde varios lugares se modela como objeto 
 export class FreshnessPolicy {
   constructor(private readonly ttlMinutes: number) {}
 
-  isStale(place: Place, now: Date): boolean { /* ... */ }
+  isStale(place: Place, now: Date): boolean {
+    /* ... */
+  }
 }
 ```
 
@@ -81,6 +83,6 @@ Preguntas en orden:
 1. ¿Traduce HTTP a una llamada interna, o valida una entrada? Va en **interfaces**.
 2. ¿Orquesta pasos, decide el orden de las cosas? Va en **aplicación**.
 3. ¿Es una regla que sería verdad aunque cambiáramos de base de datos? Va en **dominio**.
-4. ¿Sabe *cómo* hablar con un sistema externo? Va en **infraestructura**.
+4. ¿Sabe _cómo_ hablar con un sistema externo? Va en **infraestructura**.
 
 Si una pieza parece encajar en dos, casi siempre está haciendo dos cosas y hay que partirla.

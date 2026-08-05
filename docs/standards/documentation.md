@@ -31,13 +31,13 @@ Un comentario que explica código confuso es una señal de que el código debe r
 
 Un cambio requiere actualizar documentación cuando modifica **comportamiento observable**:
 
-| Cambio | Actualizar |
-| :--- | :--- |
-| Contrato de un endpoint | `design.md` y la definición OpenAPI |
-| Código de error nuevo | Catálogo en `design.md` y ambos diccionarios de traducción |
-| Variable de entorno nueva | `.env.example` con su comentario |
-| Decisión de arquitectura | `design.md`, en la tabla de decisiones |
-| Comando o paso de instalación | `README.md` y la guía de entorno |
+| Cambio                        | Actualizar                                                 |
+| :---------------------------- | :--------------------------------------------------------- |
+| Contrato de un endpoint       | `design.md` y la definición OpenAPI                        |
+| Código de error nuevo         | Catálogo en `design.md` y ambos diccionarios de traducción |
+| Variable de entorno nueva     | `.env.example` con su comentario                           |
+| Decisión de arquitectura      | `design.md`, en la tabla de decisiones                     |
+| Comando o paso de instalación | `README.md` y la guía de entorno                           |
 
 Un cambio interno que no altera comportamiento observable no requiere tocar documentación.
 

@@ -6,16 +6,16 @@ El diseño técnico está en [design.md](../design.md) y el reparto de trabajo e
 
 ## Índice
 
-| Documento | Cubre |
-| :--- | :--- |
-| [architecture.md](architecture.md) | Capas, puertos y adaptadores, dónde va cada pieza de código |
-| [api-contracts.md](api-contracts.md) | Rutas, métodos, status codes y formato de respuestas |
-| [i18n.md](i18n.md) | Códigos de error y diccionarios de traducción |
-| [code-style.md](code-style.md) | Estilo de código y nomenclatura de archivos, carpetas y símbolos |
-| [git-workflow.md](git-workflow.md) | Commits, flujo de trabajo y versionado |
-| [security-config.md](security-config.md) | Secretos, variables de entorno y validación de entradas |
-| [testing.md](testing.md) | Qué se prueba, cómo se organiza y qué se considera suficiente |
-| [documentation.md](documentation.md) | Documentación de código y formato de archivos Markdown |
+| Documento                                | Cubre                                                            |
+| :--------------------------------------- | :--------------------------------------------------------------- |
+| [architecture.md](architecture.md)       | Capas, puertos y adaptadores, dónde va cada pieza de código      |
+| [api-contracts.md](api-contracts.md)     | Rutas, métodos, status codes y formato de respuestas             |
+| [i18n.md](i18n.md)                       | Códigos de error y diccionarios de traducción                    |
+| [code-style.md](code-style.md)           | Estilo de código y nomenclatura de archivos, carpetas y símbolos |
+| [git-workflow.md](git-workflow.md)       | Commits, flujo de trabajo y versionado                           |
+| [security-config.md](security-config.md) | Secretos, variables de entorno y validación de entradas          |
+| [testing.md](testing.md)                 | Qué se prueba, cómo se organiza y qué se considera suficiente    |
+| [documentation.md](documentation.md)     | Documentación de código y formato de archivos Markdown           |
 
 ## Reglas que aplican siempre
 

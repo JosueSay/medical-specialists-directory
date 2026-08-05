@@ -28,19 +28,19 @@ Si el proyecto creciera más allá de estas cuatro semanas, lo primero a recuper
 
 Descripción breve, en imperativo, **en español**, **sin punto final**.
 
-| Tipo | Cuándo usar |
-| :--- | :--- |
-| `feat` | Nueva funcionalidad |
-| `fix` | Corrección de un error existente |
-| `chore` | Mantenimiento que no afecta producción |
-| `docs` | Documentación, README, comentarios |
-| `style` | Formato sin cambios de lógica |
+| Tipo       | Cuándo usar                                    |
+| :--------- | :--------------------------------------------- |
+| `feat`     | Nueva funcionalidad                            |
+| `fix`      | Corrección de un error existente               |
+| `chore`    | Mantenimiento que no afecta producción         |
+| `docs`     | Documentación, README, comentarios             |
+| `style`    | Formato sin cambios de lógica                  |
 | `refactor` | Cambio de estructura sin alterar funcionalidad |
-| `test` | Pruebas, fixtures o mocks |
-| `perf` | Optimización de rendimiento |
-| `ci` | Pipelines y automatizaciones |
-| `build` | Build, compilación o dependencias |
-| `revert` | Revertir un commit anterior |
+| `test`     | Pruebas, fixtures o mocks                      |
+| `perf`     | Optimización de rendimiento                    |
+| `ci`       | Pipelines y automatizaciones                   |
+| `build`    | Build, compilación o dependencias              |
+| `revert`   | Revertir un commit anterior                    |
 
 Alcances de este proyecto: `places`, `imports`, `whitelist`, `config`, `ui`, `docs`.
 
@@ -59,26 +59,26 @@ feat: Se agrego la paginacion.        # no imperativo, con punto final
 fix: arregla bug y agrega endpoint    # dos cambios en un commit
 ```
 
-El cuerpo se usa cuando el *por qué* no es obvio desde la descripción. Explica la razón, no repite el *qué*.
+El cuerpo se usa cuando el _por qué_ no es obvio desde la descripción. Explica la razón, no repite el _qué_.
 
 ## Versionado
 
 Formato `v<major>.<minor>.<patch>`.
 
-| Cambio | Incremento |
-| :--- | :--- |
-| Rompe compatibilidad | major |
-| Funcionalidad compatible | minor |
-| Corrección | patch |
+| Cambio                   | Incremento |
+| :----------------------- | :--------- |
+| Rompe compatibilidad     | major      |
+| Funcionalidad compatible | minor      |
+| Corrección               | patch      |
 
 Un tag por entrega semanal, para dejar trazable qué existía en cada evaluación:
 
-| Tag | Corresponde a |
-| :--- | :--- |
+| Tag      | Corresponde a                                             |
+| :------- | :-------------------------------------------------------- |
 | `v0.1.0` | Semana 1: infraestructura, whitelist y despliegue inicial |
-| `v0.2.0` | Semana 2: recolección operativa y datos reales |
-| `v0.3.0` | Semana 3: API paginada y UI desplegada |
-| `v1.0.0` | Semana 4: entrega final |
+| `v0.2.0` | Semana 2: recolección operativa y datos reales            |
+| `v0.3.0` | Semana 3: API paginada y UI desplegada                    |
+| `v1.0.0` | Semana 4: entrega final                                   |
 
 ```bash
 git tag -a v0.1.0 -m "Semana 1: infraestructura y whitelist"

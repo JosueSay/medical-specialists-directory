@@ -55,17 +55,17 @@ El sistema debe:
 
 ## Stack
 
-| Componente            | Tecnología                                           |
-| :-------------------- | :--------------------------------------------------- |
-| Lenguaje              | TypeScript                                           |
-| Backend               | Firebase Cloud Functions v2                          |
-| Base de datos         | Firestore                                            |
-| Hosting de UI         | Firebase Hosting                                     |
-| Fuente de datos       | Google Maps Platform, Places API                     |
-| Secretos              | Variables de entorno, Secret Manager en despliegue   |
-| Entorno de desarrollo | Emulador de Firebase y Docker Compose                |
-| Gestor de paquetes    | pnpm con workspaces                                  |
-| Calidad               | ESLint, Prettier, TypeScript en modo estricto        |
+| Componente            | Tecnología                                         |
+| :-------------------- | :------------------------------------------------- |
+| Lenguaje              | TypeScript                                         |
+| Backend               | Firebase Cloud Functions v2                        |
+| Base de datos         | Firestore                                          |
+| Hosting de UI         | Firebase Hosting                                   |
+| Fuente de datos       | Google Maps Platform, Places API                   |
+| Secretos              | Variables de entorno, Secret Manager en despliegue |
+| Entorno de desarrollo | Emulador de Firebase y Docker Compose              |
+| Gestor de paquetes    | pnpm con workspaces                                |
+| Calidad               | ESLint, Prettier, TypeScript en modo estricto      |
 
 ### Organización del repositorio
 
@@ -90,12 +90,12 @@ Razones de la desviación:
 
 Docker Compose se usa como entorno de desarrollo reproducible, junto al emulador de Firebase. No forma parte del despliegue: producción es Cloud Functions y Hosting.
 
-| Elemento                  | Propósito                                                                |
-| :------------------------ | :----------------------------------------------------------------------- |
-| `docker-compose.yml`      | Backend, frontend y emulador para desarrollo local                       |
-| `docker-compose.prod.yml` | Superposición para verificar el build de producción antes de desplegar   |
-| Perfil `emulator`         | Levanta el emulador de Firestore solo cuando se necesita                 |
-| `WATCH_USE_POLLING`       | Habilita la recarga automática sobre volúmenes montados en WSL2          |
+| Elemento                  | Propósito                                                              |
+| :------------------------ | :--------------------------------------------------------------------- |
+| `docker-compose.yml`      | Backend, frontend y emulador para desarrollo local                     |
+| `docker-compose.prod.yml` | Superposición para verificar el build de producción antes de desplegar |
+| Perfil `emulator`         | Levanta el emulador de Firestore solo cuando se necesita               |
+| `WATCH_USE_POLLING`       | Habilita la recarga automática sobre volúmenes montados en WSL2        |
 
 Los cuatro integrantes trabajan sobre sistemas distintos. Un entorno en contenedor elimina la clase de fallo en que el código corre en una máquina y no en otra, que en un proyecto de cuatro semanas consume tiempo que no se recupera.
 
@@ -865,18 +865,18 @@ Entre 2 y 5 variantes de `{término}` por especialidad, con 3 como valor de refe
 
 Propuesta inicial, sujeta a validación contra nombres comerciales reales durante la Semana 2. La columna de forma agentiva se incluye solo como referencia de lo que se descarta.
 
-| Especialidad     | Clave             | Agentivo, descartado | Disciplina       | Adjetivo relacional | Campo semántico    |
-| :--------------- | :---------------- | :------------------- | :--------------- | :------------------ | :----------------- |
-| Oncología        | `oncology`        | oncólogo             | oncología        | oncológica          | —                  |
-| Cardiología      | `cardiology`      | cardiólogo           | cardiología      | cardiológica        | cardiovascular     |
-| Pediatría        | `pediatrics`      | pediatra             | pediatría        | pediátrica          | infantil médico    |
-| Dermatología     | `dermatology`     | dermatólogo          | dermatología     | dermatológica       | —                  |
-| Ginecología      | `gynecology`      | ginecólogo           | ginecología      | ginecológica        | gineco-obstétrico  |
-| Neurología       | `neurology`       | neurólogo            | neurología       | neurológica         | neurociencias      |
-| Oftalmología     | `ophthalmology`   | oftalmólogo          | oftalmología     | oftalmológica       | —                  |
-| Ortopedia        | `orthopedics`     | ortopedista          | ortopedia        | ortopédica          | traumatología      |
-| Psiquiatría      | `psychiatry`      | psiquiatra           | psiquiatría      | psiquiátrica        | salud mental       |
-| Medicina general | `generalMedicine` | médico general       | medicina general | —                   | —                  |
+| Especialidad     | Clave             | Agentivo, descartado | Disciplina       | Adjetivo relacional | Campo semántico   |
+| :--------------- | :---------------- | :------------------- | :--------------- | :------------------ | :---------------- |
+| Oncología        | `oncology`        | oncólogo             | oncología        | oncológica          | —                 |
+| Cardiología      | `cardiology`      | cardiólogo           | cardiología      | cardiológica        | cardiovascular    |
+| Pediatría        | `pediatrics`      | pediatra             | pediatría        | pediátrica          | infantil médico   |
+| Dermatología     | `dermatology`     | dermatólogo          | dermatología     | dermatológica       | —                 |
+| Ginecología      | `gynecology`      | ginecólogo           | ginecología      | ginecológica        | gineco-obstétrico |
+| Neurología       | `neurology`       | neurólogo            | neurología       | neurológica         | neurociencias     |
+| Oftalmología     | `ophthalmology`   | oftalmólogo          | oftalmología     | oftalmológica       | —                 |
+| Ortopedia        | `orthopedics`     | ortopedista          | ortopedia        | ortopédica          | traumatología     |
+| Psiquiatría      | `psychiatry`      | psiquiatra           | psiquiatría      | psiquiátrica        | salud mental      |
+| Medicina general | `generalMedicine` | médico general       | medicina general | —                   | —                 |
 
 No todas las especialidades completan las tres formas, y forzarlas sería contraproducente:
 
@@ -974,7 +974,7 @@ Se aplica el ciclo mapear, medir y manejar.
 | :-------------------------------------------------------------------------------------- | :------------------------------------------------------ | :--------------------------------------------------------------------------------------------- |
 | Cobertura desigual entre zonas: Places API tiene menos registros en áreas rurales       | Registros por zona respecto al total                    | Documentar la cobertura por zona y no presentar la base como censo completo                    |
 | Sesgo de despliegue: el sistema se prueba con datos inventados y falla con datos reales | Diferencia entre resultados en emulador y en producción | Ejecutar la sincronización contra Places API real antes de entregar                            |
-| Datos desactualizados servidos como vigentes                                            | Antigüedad de `collectedAt` por documento               | TTL explícito, marca `stale` y `collectedAt` visible en la respuesta                       |
+| Datos desactualizados servidos como vigentes                                            | Antigüedad de `collectedAt` por documento               | TTL explícito, marca `stale` y `collectedAt` visible en la respuesta                           |
 | Fuga o abuso de la API key                                                              | Llamadas facturadas por día                             | Variables de entorno, key por integrante restringida por IP, cuota diaria y alertas de billing |
 | Gasto no controlado por sincronizaciones repetidas                                      | Sincronizaciones por keyword y por día                  | Cooldown por keyword y zona, tope de 20 resultados por invocación                              |
 | Exposición innecesaria de datos                                                         | Campos devueltos por endpoint                           | La respuesta incluye solo los campos que la UI utiliza                                         |

@@ -7,7 +7,7 @@ services:
       APP_ENV: production
     volumes:
       - ./config:/app/config:ro
-    command: ["node", "dist/index.js"]
+    command: ['node', 'dist/index.js']
     restart: unless-stopped
 
   hygieia:
@@ -19,7 +19,7 @@ services:
     environment:
       NODE_ENV: production
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - '${FRONTEND_PORT:-5173}:80'
     volumes: []
-    command: ["nginx", "-g", "daemon off;"]
+    command: ['nginx', '-g', 'daemon off;']
     restart: unless-stopped
