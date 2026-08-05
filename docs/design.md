@@ -559,9 +559,9 @@ Respuesta `200 OK`:
       "phoneNumber": "+502 2222 3333",
       "website": "",
       "zone": "10",
-      "sourceKeyword": "cardiologo zona 10 Guatemala",
+      "sourceKeyword": "cardiologia zona 10 Guatemala",
       "collectedAt": "2026-08-05T14:32:00Z",
-      "freshness": "fresh"
+      "stale": false
     }
   ],
   "meta": {
@@ -575,7 +575,28 @@ Respuesta `200 OK`:
 }
 ```
 
-El campo `freshness` toma los valores `fresh` o `stale`. Un `website` vacío se devuelve como cadena vacía, nunca omitido ni sustituido.
+El campo `stale` es booleano: vale `true` cuando el registro superó el TTL. Un `phoneNumber` o un `website` vacío se devuelve como cadena vacía, nunca omitido ni sustituido por otra fuente.
+
+### `GET /api/v1/specialties`
+
+Devuelve el catálogo de especialidades soportadas con sus variantes de búsqueda. La UI lo consume para construir el selector, de modo que un cambio de catálogo no exige tocar el frontend.
+
+Respuesta `200 OK`:
+
+```json
+{
+  "code": "specialty_list",
+  "message": "Specialty catalog retrieved successfully",
+  "data": [
+    {
+      "specialty": "cardiology",
+      "keywords": ["cardiologia", "clinica cardiologica", "centro cardiovascular"]
+    }
+  ]
+}
+```
+
+No lleva paginación: es un catálogo cerrado de diez elementos, la excepción prevista en el estándar de API. Las etiquetas visibles no vienen aquí; el frontend las resuelve con la clave `specialty_<key>` en sus diccionarios.
 
 ### Política de errores
 
@@ -596,7 +617,10 @@ Catálogo de códigos:
 | `201`       | `place_import_created`         | Sincronización completada                                                   |
 | `400`       | `validation_error`             | Parámetros ausentes o mal formados, incluido `pageSize` mayor a 50          |
 | `403`       | `ip_not_allowed`               | IP de origen fuera de la whitelist                                          |
+| `200`       | `specialty_list`               | Catálogo de especialidades consultado                                       |
+| `404`       | `resource_not_found`           | Recurso inexistente                                                         |
 | `422`       | `specialty_not_supported`      | Especialidad fuera del catálogo soportado                                   |
+| `422`       | `zone_not_supported`           | Zona fuera de las 22 zonas válidas de Ciudad de Guatemala                   |
 | `429`       | `place_import_cooldown_active` | Se intentó sincronizar la misma keyword y zona antes de cumplir el cooldown |
 | `429`       | `rate_limit_exceeded`          | Se superó el límite de peticiones por minuto para el origen                 |
 | `500`       | `internal_error`               | Error no controlado                                                         |
@@ -625,7 +649,7 @@ Error de validación con detalle por campo:
     "details": [
       {
         "field": "pageSize",
-        "code": "page_size_out_of_range",
+        "code": "out_of_range",
         "message": "pageSize must be between 1 and 50"
       }
     ]
@@ -657,7 +681,13 @@ Viven en el frontend, en `src/i18n/`, con un archivo por idioma. El proyecto man
   "place_list": "Directorio consultado correctamente",
   "place_import_created": "Sincronizacion completada",
   "validation_error": "Revisa los datos de la busqueda",
-  "page_size_out_of_range": "El tamano de pagina debe estar entre 1 y 50",
+  "specialty_list": "Catalogo de especialidades",
+  "zone_not_supported": "Esa zona no esta disponible en el directorio",
+  "resource_not_found": "No se encontro lo que buscabas",
+  "required_field": "Este campo es obligatorio",
+  "invalid_type": "El valor no tiene el formato esperado",
+  "out_of_range": "El valor esta fuera del rango permitido",
+  "not_in_catalog": "El valor no esta entre las opciones disponibles",
   "ip_not_allowed": "No tienes acceso al servicio desde esta red. Contacta al administrador",
   "specialty_not_supported": "Esa especialidad no esta disponible en el directorio",
   "place_import_cooldown_active": "Esta busqueda se sincronizo hace poco. Intenta mas tarde",
@@ -755,7 +785,9 @@ El problema de fondo: Google Maps no tiene un campo que declare "este profesiona
 
 El usuario no escribe texto libre. Tanto la especialidad como la zona provienen de catálogos cerrados. Esto acota el costo, evita búsquedas arbitrarias contra un endpoint facturable y hace que la cobertura sea documentable.
 
-Ambos catálogos viven en `config/app-config.json`, versionados junto al código. Las etiquetas que ve el usuario no están ahí: se resuelven en los diccionarios de traducción con la clave `specialty_<key>`, de modo que el catálogo permanezca libre de texto de interfaz.
+Ambos catálogos viven en `packages/contracts/src/specialty.ts`, no en un archivo de configuración. La razón es que de esa lista se deriva el tipo `Specialty`: backend y frontend obtienen verificación en tiempo de compilación, y una especialidad inexistente falla al compilar en lugar de en ejecución. Un JSON no puede dar esa garantía.
+
+Las etiquetas que ve el usuario no están en el catálogo: se resuelven en los diccionarios de traducción con la clave `specialty_<key>`, de modo que el catálogo permanezca libre de texto de interfaz.
 
 Zonas válidas de Ciudad de Guatemala: **1 a 19, 21, 24 y 25**. Son 22 zonas en total. Las zonas 20, 22 y 23 no existen: al delimitar el municipio se determinó que ese territorio pertenecía a Mixco, San Miguel Petapa y Santa Catarina Pinula respectivamente. Incluirlas en el catálogo gastaría llamadas facturables en búsquedas sin territorio.
 
@@ -833,24 +865,25 @@ Entre 2 y 5 variantes de `{término}` por especialidad, con 3 como valor de refe
 
 Propuesta inicial, sujeta a validación contra nombres comerciales reales durante la Semana 2. La columna de forma agentiva se incluye solo como referencia de lo que se descarta.
 
-| Especialidad     | Agentivo, descartado | Disciplina       | Adjetivo relacional | Campo semántico    |
-| :--------------- | :------------------- | :--------------- | :------------------ | :----------------- |
-| Cardiología      | cardiólogo           | cardiología      | cardiológica        | cardiovascular     |
-| Pediatría        | pediatra             | pediatría        | pediátrica          | infantil           |
-| Ginecología      | ginecólogo           | ginecología      | ginecológica        | gineco-obstetricia |
-| Dermatología     | dermatólogo          | dermatología     | dermatológica       | —                  |
-| Traumatología    | traumatólogo         | traumatología    | traumatológica      | ortopedia          |
-| Oftalmología     | oftalmólogo          | oftalmología     | oftalmológica       | —                  |
-| Neurología       | neurólogo            | neurología       | neurológica         | neurociencias      |
-| Psiquiatría      | psiquiatra           | psiquiatría      | psiquiátrica        | salud mental       |
-| Oncología        | oncólogo             | oncología        | oncológica          | —                  |
-| Medicina interna | internista           | medicina interna | —                   | —                  |
+| Especialidad     | Clave             | Agentivo, descartado | Disciplina       | Adjetivo relacional | Campo semántico    |
+| :--------------- | :---------------- | :------------------- | :--------------- | :------------------ | :----------------- |
+| Oncología        | `oncology`        | oncólogo             | oncología        | oncológica          | —                  |
+| Cardiología      | `cardiology`      | cardiólogo           | cardiología      | cardiológica        | cardiovascular     |
+| Pediatría        | `pediatrics`      | pediatra             | pediatría        | pediátrica          | infantil médico    |
+| Dermatología     | `dermatology`     | dermatólogo          | dermatología     | dermatológica       | —                  |
+| Ginecología      | `gynecology`      | ginecólogo           | ginecología      | ginecológica        | gineco-obstétrico  |
+| Neurología       | `neurology`       | neurólogo            | neurología       | neurológica         | neurociencias      |
+| Oftalmología     | `ophthalmology`   | oftalmólogo          | oftalmología     | oftalmológica       | —                  |
+| Ortopedia        | `orthopedics`     | ortopedista          | ortopedia        | ortopédica          | traumatología      |
+| Psiquiatría      | `psychiatry`      | psiquiatra           | psiquiatría      | psiquiátrica        | salud mental       |
+| Medicina general | `generalMedicine` | médico general       | medicina general | —                   | —                  |
 
 No todas las especialidades completan las tres formas, y forzarlas sería contraproducente:
 
-- **Medicina interna** carece de adjetivo relacional de uso comercial y se queda en una sola variante útil.
+- **Medicina general** carece de adjetivo relacional de uso comercial y se queda en dos variantes. Además es la única entrada del catálogo que no es una especialidad en sentido estricto: se incluye porque buena parte de la oferta médica de barrio se registra así, y su presencia se declara en el reporte de cobertura para no presentarla como especialización.
 - **Dermatología** tiene un término de campo semántico obvio, `piel`, que se descarta porque arrastra spas y centros de estética. El filtro `includedType` reduce ese ruido pero no lo elimina.
 - **Oftalmología** tendría `óptica`, que se descarta porque designa un comercio de lentes y no un servicio médico.
+- **Ortopedia** conserva `traumatología` como campo semántico. Son especialidades vecinas y muchos establecimientos usan ambos términos, de modo que la variante amplía cobertura real en lugar de arrastrar otro rubro.
 - **Psiquiatría** comparte el término `salud mental` con psicología, que no está en el catálogo. Los registros que ingresen por esa vía deben revisarse antes de darlos por válidos.
 
 Cada término de campo semántico se evalúa individualmente. Un término que arrastra un rubro distinto al médico se descarta aunque sea correcto en el lenguaje común.
@@ -941,7 +974,7 @@ Se aplica el ciclo mapear, medir y manejar.
 | :-------------------------------------------------------------------------------------- | :------------------------------------------------------ | :--------------------------------------------------------------------------------------------- |
 | Cobertura desigual entre zonas: Places API tiene menos registros en áreas rurales       | Registros por zona respecto al total                    | Documentar la cobertura por zona y no presentar la base como censo completo                    |
 | Sesgo de despliegue: el sistema se prueba con datos inventados y falla con datos reales | Diferencia entre resultados en emulador y en producción | Ejecutar la sincronización contra Places API real antes de entregar                            |
-| Datos desactualizados servidos como vigentes                                            | Antigüedad de `collectedAt` por documento               | TTL explícito, marca `freshness` y `collectedAt` visible en la respuesta                       |
+| Datos desactualizados servidos como vigentes                                            | Antigüedad de `collectedAt` por documento               | TTL explícito, marca `stale` y `collectedAt` visible en la respuesta                       |
 | Fuga o abuso de la API key                                                              | Llamadas facturadas por día                             | Variables de entorno, key por integrante restringida por IP, cuota diaria y alertas de billing |
 | Gasto no controlado por sincronizaciones repetidas                                      | Sincronizaciones por keyword y por día                  | Cooldown por keyword y zona, tope de 20 resultados por invocación                              |
 | Exposición innecesaria de datos                                                         | Campos devueltos por endpoint                           | La respuesta incluye solo los campos que la UI utiliza                                         |
@@ -954,7 +987,7 @@ Sección requerida por el enunciado. Se irá ampliando conforme avance la implem
 - **Términos de servicio de Google.** Las políticas de Places permiten almacenar el `place_id` de forma indefinida y restringen el resto del contenido. El proyecto guarda un subconjunto acotado de campos con TTL y retención máxima, como desviación consciente de alcance académico. En un escenario real se requeriría un acuerdo comercial. No se construye un producto que redistribuya los resultados de Google.
 - **No inferir datos.** Ningún campo se completa, deduce ni enriquece con fuentes externas. La zona y la especialidad provienen de la keyword utilizada, no de una interpretación de la dirección, y `sourceKeyword` conserva la evidencia del origen. Los campos que Google no entrega se guardan vacíos y su cobertura se reporta.
 - **El directorio es una referencia, no una validación médica.** No acredita competencia profesional ni vigencia de colegiado. Toda respuesta incluye `collectedAt` para que quien la consuma sepa de cuándo es el dato.
-- **Transparencia del resultado.** La respuesta expone la marca `freshness` y la paginación, de modo que la lista no se lea como exhaustiva ni como actual por defecto.
+- **Transparencia del resultado.** La respuesta expone la marca `stale`, la fecha `collectedAt` y la paginación, de modo que la lista no se lea como exhaustiva ni como actual por defecto.
 - **Minimización.** Solo se persisten los campos necesarios para localizar un especialista. Se descartaron coordenadas y calificación por no ser requeridos.
 - **Datos de salud.** Aunque los registros provienen de fuentes públicas de negocios, el dominio es sanitario. No se almacena información de pacientes ni datos personales sensibles.
 - **Cobertura desigual y qué mide realmente el conteo.** El sistema no cuenta médicos: cuenta negocios registrados en Google Maps cuyo nombre coincide con las keywords del catálogo. Un conteo bajo en una zona admite al menos tres explicaciones que el dato no permite distinguir entre sí: que haya pocos especialistas, que los haya pero no registren su consultorio en Google, o que atiendan dentro de hospitales y centros de salud públicos que no aparecen como registro independiente. Un negocio llega a Google Maps cuando alguien tuvo el interés comercial y la capacidad técnica de registrarlo, de modo que el conteo refleja en buena parte presencia digital y solo de forma indirecta oferta médica. Presentar estas cifras como medida de disponibilidad de atención induciría a decisiones equivocadas sobre dónde asignar recursos. La documentación reporta el conteo por zona acompañado siempre de esta advertencia.
