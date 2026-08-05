@@ -1,0 +1,37 @@
+{
+  "functions": {
+    "source": "apps/backend",
+    "codebase": "api",
+    "runtime": "nodejs22",
+    "predeploy": ["pnpm run --filter @msd/contracts build", "pnpm run --filter @msd/backend build"],
+    "ignore": [
+      "node_modules",
+      ".git",
+      "src",
+      "tests",
+      "**/*.test.ts",
+      ".env",
+      ".env.*",
+      "!.env.example"
+    ]
+  },
+  "hosting": {
+    "public": "apps/frontend/dist",
+    "ignore": ["**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/api/**", "function": "api" },
+      { "source": "**", "destination": "/index.html" }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "functions": { "host": "0.0.0.0", "port": 5001 },
+    "firestore": { "host": "0.0.0.0", "port": 8080 },
+    "hosting": { "host": "0.0.0.0", "port": 5000 },
+    "ui": { "enabled": true, "host": "0.0.0.0", "port": 4001 },
+    "singleProjectMode": true
+  }
+}
