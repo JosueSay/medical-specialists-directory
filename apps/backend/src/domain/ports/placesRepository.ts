@@ -1,0 +1,37 @@
+import type { Specialty } from '@msd/contracts';
+import type { ImportRun, Place } from '@/domain/entities/place.js';
+
+/** Filtros soportados por la consulta al directorio. */
+export interface PlaceFilters {
+  specialty?: Specialty;
+  zone?: string;
+  q?: string;
+}
+
+export interface PagedResult<TItem> {
+  items: TItem[];
+  totalItems: number;
+}
+
+/**
+ * Puerto de persistencia. El dominio define que necesita; la infraestructura
+ * decide como se cumple (memoria en desarrollo, Firestore en despliegue).
+ */
+export interface PlacesRepository {
+  /** Escritura idempotente por `placeId`. Devuelve cuantos documentos se escribieron. */
+  upsertMany(places: Place[]): Promise<number>;
+
+  findBy(filters: PlaceFilters, page: number, pageSize: number): Promise<PagedResult<Place>>;
+
+  saveImportRun(run: ImportRun): Promise<void>;
+
+  /** Ultima sincronizacion de esa combinacion, base del cooldown. */
+  findLastImportRun(specialty: Specialty, zone: string): Promise<ImportRun | null>;
+
+  /**
+   * Borra los registros cuyo `updatedAt` es anterior a la fecha dada.
+   * Aplica la politica de retencion: pasado ese plazo no se conservan los
+   * campos que provienen de Places API.
+   */
+  purgeExpired(expiredBefore: string): Promise<number>;
+}
