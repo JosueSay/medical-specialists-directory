@@ -1,0 +1,27 @@
+{
+  "name": "@msd/contracts",
+  "version": "0.1.0",
+  "description": "Contrato compartido entre backend y frontend: endpoints, codigos, tipos de request y response",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"@msd/contracts no tiene tests propios\" && exit 0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
