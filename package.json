@@ -1,0 +1,45 @@
+{
+  "name": "medical-specialists-directory",
+  "version": "0.1.0",
+  "description": "Directorio de especialistas medicos: API HTTP sobre Places API con cache propio y UI de consulta",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.19.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm run --parallel --filter \"@msd/*\" dev",
+    "dev:backend": "pnpm run --filter @msd/contracts build && pnpm run --filter @msd/backend dev",
+    "dev:frontend": "pnpm run --filter @msd/contracts build && pnpm run --filter @msd/frontend dev",
+    "build": "pnpm run --filter @msd/contracts build && pnpm run --filter @msd/backend build && pnpm run --filter @msd/frontend build",
+    "start": "pnpm run --filter @msd/backend start",
+    "test": "pnpm run --recursive test",
+    "test:watch": "pnpm run --recursive test:watch",
+    "typecheck": "pnpm run --recursive typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "clean": "rimraf \"{apps,packages}/*/{dist,node_modules,.turbo}\" node_modules",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:emulator": "docker compose --profile emulator up --build",
+    "docker:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.9.0",
+    "prettier": "^3.9.6",
+    "rimraf": "^6.1.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.66.0"
+  }
+}
