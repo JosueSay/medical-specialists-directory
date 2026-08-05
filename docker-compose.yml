@@ -1,0 +1,126 @@
+name: ${COMPOSE_PROJECT_NAME:-msd}
+
+services:
+  # --------------------------------------------------------------------------
+  # Backend: Express con nodemon
+  # --------------------------------------------------------------------------
+  asclepius:
+    container_name: msd-asclepius
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: development
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      BACKEND_PORT: ${BACKEND_PORT:-4000}
+      FIRESTORE_EMULATOR_HOST: ${FIRESTORE_EMULATOR_HOST:-}
+    ports:
+      - "${BACKEND_PORT:-4000}:${BACKEND_PORT:-4000}"
+    volumes:
+      # Codigo montado desde el host para hot reload
+      - ./apps/backend/src:/app/apps/backend/src
+      - ./apps/backend/tests:/app/apps/backend/tests
+      - ./apps/backend/nodemon.json:/app/apps/backend/nodemon.json
+      - ./packages/contracts/src:/app/packages/contracts/src
+      # Configuracion no sensible, en solo lectura
+      - ./config:/app/config:ro
+      # Volumenes anonimos: preservan las dependencias instaladas en la imagen
+      - /app/node_modules
+      - /app/apps/backend/node_modules
+      - /app/packages/contracts/node_modules
+    command: >
+      sh -c "pnpm run --filter @msd/contracts build &&
+             pnpm run --parallel --filter @msd/contracts --filter @msd/backend dev"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+(process.env.BACKEND_PORT||4000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    networks:
+      - olympus
+
+  # --------------------------------------------------------------------------
+  # Frontend: Vite en modo desarrollo
+  # --------------------------------------------------------------------------
+  hygieia:
+    container_name: msd-hygieia
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      target: development
+    # Sin env_file a proposito: la UI recibe solo las variables que necesita.
+    # El .env del monorepo contiene la API key de Google, que el frontend no usa
+    # y no tiene por que estar presente en su contenedor.
+    environment:
+      NODE_ENV: development
+      FRONTEND_PORT: ${FRONTEND_PORT:-5173}
+      BACKEND_PORT: ${BACKEND_PORT:-4000}
+      # El proxy de Vite apunta al backend por su service name
+      BACKEND_INTERNAL_HOST: asclepius
+      # Sin polling, los cambios del host no se detectan dentro del contenedor
+      WATCH_USE_POLLING: ${WATCH_USE_POLLING:-true}
+      WATCH_POLL_INTERVAL: ${WATCH_POLL_INTERVAL:-300}
+      # Unicas variables que Vite inyecta en el bundle del navegador
+      VITE_APP_ENV: ${VITE_APP_ENV:-local}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+      VITE_DEFAULT_LOCALE: ${VITE_DEFAULT_LOCALE:-es}
+      VITE_DEFAULT_THEME: ${VITE_DEFAULT_THEME:-system}
+      VITE_DEFAULT_PAGE_SIZE: ${VITE_DEFAULT_PAGE_SIZE:-10}
+    ports:
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
+    volumes:
+      - ./apps/frontend/src:/app/apps/frontend/src
+      - ./apps/frontend/tests:/app/apps/frontend/tests
+      - ./apps/frontend/index.html:/app/apps/frontend/index.html
+      - ./apps/frontend/vite.config.ts:/app/apps/frontend/vite.config.ts
+      - ./packages/contracts/src:/app/packages/contracts/src
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+      - /app/packages/contracts/node_modules
+    command: >
+      sh -c "pnpm run --filter @msd/contracts build &&
+             pnpm run --filter @msd/frontend dev"
+    depends_on:
+      - asclepius
+    networks:
+      - olympus
+
+  # --------------------------------------------------------------------------
+  # Emulador de Firestore: docker compose --profile emulator up
+  # --------------------------------------------------------------------------
+  mnemosyne:
+    container_name: msd-mnemosyne
+    profiles:
+      - emulator
+    build:
+      context: .
+      dockerfile: docker/firestore-emulator/Dockerfile
+    environment:
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-msd}
+    ports:
+      - "${FIRESTORE_EMULATOR_PORT:-8080}:8080"
+      - "${FIREBASE_EMULATOR_UI_PORT:-4001}:4001"
+    volumes:
+      - ./firebase.json:/app/firebase.json:ro
+      - ./firestore.rules:/app/firestore.rules:ro
+      - ./firestore.indexes.json:/app/firestore.indexes.json:ro
+      - mnemosyne-data:/app/data
+    networks:
+      - olympus
+
+networks:
+  olympus:
+    name: msd-olympus
+
+volumes:
+  mnemosyne-data:
+    name: msd-mnemosyne-data

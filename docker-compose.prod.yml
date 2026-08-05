@@ -1,0 +1,25 @@
+services:
+  asclepius:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+      APP_ENV: production
+    volumes:
+      - ./config:/app/config:ro
+    command: ["node", "dist/index.js"]
+    restart: unless-stopped
+
+  hygieia:
+    build:
+      target: production
+      args:
+        VITE_API_BASE_URL: /api/v1
+        VITE_APP_ENV: production
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    volumes: []
+    command: ["nginx", "-g", "daemon off;"]
+    restart: unless-stopped
