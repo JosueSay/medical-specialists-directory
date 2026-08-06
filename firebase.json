@@ -1,22 +1,20 @@
 {
   "functions": {
-    "source": "apps/backend",
+    "source": "apps/backend/.deploy",
     "codebase": "api",
     "runtime": "nodejs22",
-    "predeploy": ["pnpm run --filter @msd/contracts build", "pnpm run --filter @msd/backend build"],
-    "ignore": [
-      "node_modules",
-      ".git",
-      "src",
-      "tests",
-      "**/*.test.ts",
-      ".env",
-      ".env.*",
-      "!.env.example"
-    ]
+    "predeploy": [
+      "pnpm run --filter @msd/contracts build",
+      "pnpm run --filter @msd/backend bundle"
+    ],
+    "ignore": ["node_modules", ".git"]
   },
   "hosting": {
     "public": "apps/frontend/dist",
+    "predeploy": [
+      "pnpm run --filter @msd/contracts build",
+      "pnpm run --filter @msd/frontend build"
+    ],
     "ignore": ["**/.*", "**/node_modules/**"],
     "rewrites": [
       { "source": "/api/**", "function": "api" },

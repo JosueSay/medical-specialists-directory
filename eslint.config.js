@@ -7,7 +7,15 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', '**/*.d.ts', '.claude/**'],
+    ignores: [
+      '**/dist/**',
+      // Artefacto de despliegue generado por el empaquetado de la funcion
+      '**/.deploy/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      '**/*.d.ts',
+      '.claude/**',
+    ],
   },
 
   js.configs.recommended,
@@ -86,9 +94,9 @@ export default tseslint.config(
     },
   },
 
-  // Archivos de configuracion en JS
+  // Archivos de configuracion y scripts en JS que corren en Node
   {
-    files: ['**/*.config.{js,ts}', 'eslint.config.js'],
+    files: ['**/*.config.{js,ts}', 'eslint.config.js', '**/scripts/**/*.mjs'],
     languageOptions: {
       globals: globals.node,
     },

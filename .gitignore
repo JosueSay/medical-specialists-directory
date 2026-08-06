@@ -21,6 +21,7 @@ pnpm-debug.log*
 
 # Firebase
 .firebase/
+.deploy/
 firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*
