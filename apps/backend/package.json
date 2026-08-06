@@ -8,12 +8,13 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
+    "bundle": "node scripts/bundleFunctions.mjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "serve:functions": "pnpm run build && firebase emulators:start --only functions"
+    "serve:functions": "pnpm run bundle && firebase emulators:start --only functions"
   },
   "dependencies": {
     "@msd/contracts": "workspace:*",
@@ -31,6 +32,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.1",
     "@types/supertest": "^7.2.1",
+    "esbuild": "^0.28.1",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2",
     "tsc-alias": "^1.9.1",

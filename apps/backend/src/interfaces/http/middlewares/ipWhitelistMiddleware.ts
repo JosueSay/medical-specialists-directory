@@ -12,7 +12,14 @@ import { logger } from '@/shared/logger.js';
  *
  * La IP evaluada es la que Express resuelve segun `trust proxy`, de manera que
  * detras del proxy de Firebase se evalua la IP publica real del cliente y no la
- * del proxy.
+ * del proxy. No se recurre a la direccion del socket cuando Express no resuelve
+ * una IP: detras de un proxy esa direccion es la del proxy, y autorizarla
+ * dejaria pasar a cualquiera que llegue por el mismo camino.
+ *
+ * El emulador de Functions entrega la peticion sin socket ni cabecera
+ * `X-Forwarded-For`, asi que ahi no existe IP de cliente y todo responde 403.
+ * La whitelist se verifica en local contra el servidor Express, que si expone
+ * la conexion real.
  */
 export function createIpWhitelistMiddleware(source: WhitelistSource, enabled: boolean) {
   if (!enabled) {
@@ -34,8 +41,14 @@ export function createIpWhitelistMiddleware(source: WhitelistSource, enabled: bo
       const whitelist = await source.getEntries();
 
       if (!isIpAllowed(clientIp, whitelist)) {
-        // Se registra la IP rechazada para auditoria, nunca se devuelve al cliente
-        logger.warn('Peticion rechazada por whitelist', { clientIp, path: req.path });
+        // Se registra la IP rechazada para auditoria, nunca se devuelve al
+        // cliente. La cabecera del proxy queda en el log porque un rechazo
+        // masivo suele significar TRUST_PROXY_HOPS mal configurado.
+        logger.warn('Peticion rechazada por whitelist', {
+          clientIp,
+          path: req.path,
+          forwardedFor: req.headers['x-forwarded-for'] ?? '',
+        });
         next(AppError.ipNotAllowed());
         return;
       }

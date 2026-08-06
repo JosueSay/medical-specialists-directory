@@ -35,6 +35,13 @@ const csvList = z
   )
   .pipe(z.array(z.string()));
 
+/**
+ * En Cloud Functions el identificador del proyecto lo provee el runtime y no se
+ * puede declarar a mano: Firebase reserva el prefijo `FIREBASE_` en los
+ * archivos de entorno de la funcion.
+ */
+const runtimeProjectId = process.env.GOOGLE_CLOUD_PROJECT ?? process.env.GCLOUD_PROJECT ?? '';
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   APP_ENV: z.enum(['local', 'development', 'staging', 'production']).default('local'),
@@ -72,7 +79,7 @@ const envSchema = z.object({
   PLACES_RETENTION_HOURS: z.coerce.number().int().min(1).default(24),
   SYNC_COOLDOWN_MINUTES: z.coerce.number().int().min(0).default(1),
 
-  FIREBASE_PROJECT_ID: z.string().default(''),
+  FIREBASE_PROJECT_ID: z.string().default(runtimeProjectId),
   FIRESTORE_PLACES_COLLECTION: z.string().default('places'),
   FIRESTORE_IMPORT_RUNS_COLLECTION: z.string().default('importRuns'),
   FIRESTORE_EMULATOR_HOST: z.string().default(''),
