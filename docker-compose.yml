@@ -117,6 +117,36 @@ services:
     networks:
       - olympus
 
+  # --------------------------------------------------------------------------
+  # CLI de Firebase: docker compose --profile tools run --rm hermes <comando>
+  # Sesion, despliegue y suite completa de emuladores sin instalar Node.
+  # --------------------------------------------------------------------------
+  hermes:
+    container_name: msd-hermes
+    profiles:
+      - tools
+    build:
+      context: .
+      dockerfile: docker/firebase-cli/Dockerfile
+    # Sin env_file a proposito: el CLI no necesita la configuracion de la
+    # aplicacion, y la funcion desplegada toma la suya de apps/backend/functions.env
+    # Solo se publican con `run --service-ports`, al levantar la suite completa
+    # de emuladores. No se usa junto con el perfil `emulator`: comparten puertos.
+    ports:
+      - '${FUNCTIONS_EMULATOR_PORT:-5001}:5001'
+      - '${HOSTING_EMULATOR_PORT:-5000}:5000'
+      - '${FIRESTORE_EMULATOR_PORT:-8080}:8080'
+      - '${FIREBASE_EMULATOR_UI_PORT:-4001}:4001'
+    volumes:
+      # El repositorio completo: el despliegue compila el workspace antes de subir
+      - .:/app
+      # Sesion de firebase-tools y .firebaserc del contenedor, persistidos entre corridas
+      - hermes-config:/home/node/.config
+      # Cache de descargas: los JAR de los emuladores no se bajan en cada corrida
+      - hermes-cache:/home/node/.cache
+    networks:
+      - olympus
+
 networks:
   olympus:
     name: msd-olympus
@@ -124,3 +154,7 @@ networks:
 volumes:
   mnemosyne-data:
     name: msd-mnemosyne-data
+  hermes-config:
+    name: msd-hermes-config
+  hermes-cache:
+    name: msd-hermes-cache
