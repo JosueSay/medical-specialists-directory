@@ -8,7 +8,7 @@ Guía operativa del repositorio: cómo levantarlo, qué hace cada carpeta y qué
 | :---------- | :------------ | :--------------------------------------------------------- |
 | Node.js     | 22 o superior | La versión exacta está en `.nvmrc`                         |
 | pnpm        | 10 o superior | `corepack enable` lo habilita sin instalarlo aparte        |
-| Docker      | opcional      | Solo si se trabaja con contenedores en lugar de Node local |
+| Docker      | opcional      | Alternativa a Node local; además provee el CLI de Firebase |
 
 ## Puesta en marcha
 
@@ -38,11 +38,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 
 Los contenedores siguen el prefijo del proyecto más un nombre temático de mitología griega:
 
-| Servicio    | Contenedor      | Rol                                        |
-| :---------- | :-------------- | :----------------------------------------- |
-| `asclepius` | `msd-asclepius` | API HTTP, dios de la medicina              |
-| `hygieia`   | `msd-hygieia`   | UI de consulta, diosa de la salud          |
-| `mnemosyne` | `msd-mnemosyne` | Emulador de Firestore, titán de la memoria |
+| Servicio    | Contenedor      | Rol                                          |
+| :---------- | :-------------- | :------------------------------------------- |
+| `asclepius` | `msd-asclepius` | API HTTP, dios de la medicina                |
+| `hygieia`   | `msd-hygieia`   | UI de consulta, diosa de la salud            |
+| `mnemosyne` | `msd-mnemosyne` | Emulador de Firestore, titán de la memoria   |
+| `hermes`    | `msd-hermes`    | CLI de Firebase, mensajero: sesión y deploys |
 
 La red es `msd-olympus` y el volumen de datos del emulador `msd-mnemosyne-data`.
 
@@ -65,6 +66,56 @@ docker scout cves msd-mnemosyne --only-severity critical,high
 Si el escáner sigue reportando avisos sobre el JRE, la vía siguiente es subir a `openjdk25-jre-headless` en `docker/firestore-emulator/Dockerfile`, o reemplazar la imagen propia por la de Google (`gcr.io/google.com/cloudsdktool/google-cloud-cli` con los emuladores), a cambio de perder la interfaz de emuladores de Firebase.
 
 Conviene recordar que el emulador es una herramienta de desarrollo local: no se despliega ni se expone fuera de la máquina de cada integrante.
+
+## Firebase: sesión, emuladores y despliegue
+
+El CLI de Firebase corre containerizado en el servicio `hermes`, de modo que nadie necesita instalar Node ni `firebase-tools` en su máquina. La sesión y la caché de emuladores quedan en volúmenes (`msd-hermes-config`, `msd-hermes-cache`), así que solo se inicia sesión una vez.
+
+```bash
+docker compose --profile tools build hermes                            # una sola vez
+docker compose --profile tools run --rm hermes login --no-localhost    # abre la URL que imprime
+docker compose --profile tools run --rm hermes use <projectId>         # fija el proyecto destino
+docker compose --profile tools run --rm hermes projects:list           # verifica la sesión
+```
+
+`firebase use` escribe `.firebaserc` en la raíz. **Ese archivo no se versiona**: cada integrante apunta a su propio proyecto y responde por el gasto de su cuenta.
+
+### Suite completa de emuladores
+
+```bash
+docker compose --profile tools run --rm --service-ports hermes emulators:start
+```
+
+Levanta Functions, Firestore, Hosting y la interfaz de emuladores en los puertos del `.env`. No se usa junto con `docker compose --profile emulator up`: `mnemosyne` y `hermes` comparten los puertos de Firestore.
+
+El desarrollo diario no lo necesita. `docker compose up` con `PERSISTENCE_DRIVER=memory` cubre casi todo; el emulador entra cuando se trabaja contra Firestore o se quiere verificar el empaquetado real de la función antes de desplegar.
+
+### Despliegue
+
+```bash
+docker compose --profile tools run --rm hermes deploy --only functions
+docker compose --profile tools run --rm hermes deploy --only hosting
+```
+
+Cada comando ejecuta antes sus hooks de `predeploy`: compilar el contrato y, según el caso, empaquetar la función o construir la UI.
+
+La función no se sube tal cual está en `apps/backend`. Firebase corre `npm install` dentro de la nube, donde el protocolo `workspace:` de pnpm no existe, así que `pnpm run --filter @msd/backend bundle` genera en `apps/backend/.deploy/` un artefacto autocontenido: el código del workspace incrustado en un solo archivo, las dependencias de npm declaradas normalmente y `functions.env` copiado como `.env`. El razonamiento está en [design.md](design.md#empaquetado-para-el-despliegue).
+
+`apps/backend/functions.env` es la configuración de la función desplegada y **se versiona**: no contiene secretos. La API key de Google llega desde Secret Manager y el identificador del proyecto lo provee el propio runtime.
+
+### Verificar la whitelist contra Firestore en local
+
+La whitelist en producción vive en un documento de Firestore. Para probar ese camino sin desplegar, se levanta el emulador de Firestore y se arranca el backend apuntando a él:
+
+```bash
+docker compose --profile emulator up mnemosyne
+PERSISTENCE_DRIVER=firestore FIRESTORE_EMULATOR_HOST=localhost:8080 \
+  FIREBASE_PROJECT_ID=demo-msd IP_WHITELIST= pnpm dev:backend
+```
+
+Con el documento `config/ipWhitelist` vacío o inexistente, toda petición a `/api/v1/places` responde `403`; al agregar la IP desde la interfaz del emulador, la siguiente petición pasa en menos de 60 segundos, que es lo que dura la caché.
+
+El emulador de **Functions** no sirve para esta verificación: entrega la petición sin socket ni cabecera `X-Forwarded-For`, de modo que no existe IP de cliente y todo responde `403`. Es una limitación del emulador, no del middleware.
 
 ## Estructura del repositorio
 
@@ -97,16 +148,17 @@ docs/               documentación del proyecto
 
 ## Scripts
 
-| Comando                               | Qué hace                                                         |
-| :------------------------------------ | :--------------------------------------------------------------- |
-| `pnpm dev`                            | Contrato, backend y frontend en paralelo con recarga en caliente |
-| `pnpm build`                          | Compila contrato, backend y frontend                             |
-| `pnpm test`                           | Ejecuta las pruebas de todos los paquetes                        |
-| `pnpm typecheck`                      | Verifica tipos sin emitir archivos                               |
-| `pnpm lint` / `pnpm lint:fix`         | ESLint sobre todo el monorepo                                    |
-| `pnpm format` / `pnpm format:check`   | Prettier                                                         |
-| `pnpm check`                          | Formato, lint, tipos y pruebas en una sola pasada                |
-| `pnpm docker:up` / `pnpm docker:down` | Ciclo de vida de los contenedores de desarrollo                  |
+| Comando                                 | Qué hace                                                         |
+| :-------------------------------------- | :--------------------------------------------------------------- |
+| `pnpm dev`                              | Contrato, backend y frontend en paralelo con recarga en caliente |
+| `pnpm build`                            | Compila contrato, backend y frontend                             |
+| `pnpm test`                             | Ejecuta las pruebas de todos los paquetes                        |
+| `pnpm typecheck`                        | Verifica tipos sin emitir archivos                               |
+| `pnpm lint` / `pnpm lint:fix`           | ESLint sobre todo el monorepo                                    |
+| `pnpm format` / `pnpm format:check`     | Prettier                                                         |
+| `pnpm check`                            | Formato, lint, tipos y pruebas en una sola pasada                |
+| `pnpm docker:up` / `pnpm docker:down`   | Ciclo de vida de los contenedores de desarrollo                  |
+| `pnpm run --filter @msd/backend bundle` | Genera el artefacto de despliegue de la Cloud Function           |
 
 ## Configuración
 

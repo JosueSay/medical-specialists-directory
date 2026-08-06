@@ -1,0 +1,48 @@
+name: CI
+
+# Verificacion automatica del trabajo que entra a main (P3-11). No despliega:
+# cada deploy a produccion tiene costo real y se ejecuta a mano.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Formato, lint, tipos y pruebas
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      # El backend y el frontend importan @msd/contracts compilado
+      - name: Compilar contratos
+        run: pnpm run --filter @msd/contracts build
+
+      - name: Formato
+        run: pnpm run format:check
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Tipos
+        run: pnpm run typecheck
+
+      - name: Pruebas
+        run: pnpm run test
+
+      # Verifica que la funcion sigue empaquetandose: un fallo aqui significa
+      # que el despliegue se rompio, no las pruebas
+      - name: Empaquetar la Cloud Function
+        run: pnpm run --filter @msd/backend bundle

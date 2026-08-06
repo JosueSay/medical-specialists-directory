@@ -95,11 +95,29 @@ Docker Compose se usa como entorno de desarrollo reproducible, junto al emulador
 | `docker-compose.yml`      | Backend, frontend y emulador para desarrollo local                     |
 | `docker-compose.prod.yml` | Superposición para verificar el build de producción antes de desplegar |
 | Perfil `emulator`         | Levanta el emulador de Firestore solo cuando se necesita               |
+| Perfil `tools`            | CLI de Firebase containerizado: sesión, emuladores y despliegue        |
 | `WATCH_USE_POLLING`       | Habilita la recarga automática sobre volúmenes montados en WSL2        |
 
 Los cuatro integrantes trabajan sobre sistemas distintos. Un entorno en contenedor elimina la clase de fallo en que el código corre en una máquina y no en otra, que en un proyecto de cuatro semanas consume tiempo que no se recupera.
 
 Docker es opcional: `pnpm dev` levanta el proyecto sin contenedores, con persistencia en memoria y proveedor simulado.
+
+### Empaquetado para el despliegue
+
+Firebase sube la carpeta de la función y ejecuta `npm install` dentro de la nube. El monorepo declara `@msd/contracts` con el protocolo `workspace:` de pnpm, que npm no entiende: desplegar `apps/backend` tal cual falla al resolver esa dependencia.
+
+`pnpm run --filter @msd/backend bundle` genera un artefacto autocontenido en `apps/backend/.deploy/`:
+
+| Archivo             | Contenido                                                                       |
+| :------------------ | :------------------------------------------------------------------------------ |
+| `index.js`          | Código propio y `@msd/contracts` incrustados en un solo archivo por esbuild     |
+| `package.json`      | Las dependencias de npm tal cual, sin rastro del workspace                      |
+| `package-lock.json` | Las versiones exactas que se probaron en local, que son las que instala la nube |
+| `.env`              | Copia de `functions.env`: configuración de ejecución, sin secretos              |
+
+Las dependencias de npm quedan fuera del empaquetado y se instalan en la nube: `firebase-admin` carga módulos nativos y no sobrevive al bundling. También se instalan dentro de `.deploy/`, porque el CLI inspecciona esa carpeta para descubrir las funciones antes de subirlas.
+
+La alternativa era publicar `@msd/contracts` en un registro, que para un proyecto de cuatro semanas cuesta más de lo que resuelve.
 
 ### Cumplimiento de la arquitectura por herramientas
 
@@ -670,6 +688,12 @@ Para que la exención no abra superficie, el endpoint cumple tres condiciones:
 - Responde únicamente `200` con `{ "code": "service_healthy" }`. Sin datos, sin versiones, sin nombres de dependencias.
 - No consulta Firestore ni Places API. Verificar que el proceso responde no debe costar dinero ni carga.
 - No revela si las dependencias están configuradas. Un atacante no puede usarlo para inferir el estado interno del sistema.
+
+### Función `helloWorld`
+
+Función desplegada aparte de la API, entregable de la Semana 1. Responde `200` con el texto `Hello World` y nada más.
+
+No forma parte del producto: existe para verificar que el pipeline completo funciona, desde compilar el monorepo hasta responder en el proyecto desplegado. Está exenta de la whitelist por la misma razón que el health check y con las mismas condiciones: no toca Firestore, no llama a Places API y no revela entorno, versión ni estado interno.
 
 ### Diccionarios de traducción
 
