@@ -1163,7 +1163,35 @@ curl -s 'http://localhost:4000/api/v1/places?specialty=cardiology&zone=10&pageSi
   | jq '{total:(.data|length), conTelefono:([.data[]|select(.phoneNumber!="")]|length), conSitio:([.data[]|select(.website!="")]|length)}'
 ```
 
-La medición se repite por especialidad y zona conforme avance la recolección, porque no hay razón para suponer que la proporción se mantenga: un consultorio de barrio y una clínica de zona 10 no tienen la misma probabilidad de haber registrado un sitio web.
+#### Cobertura por las diez especialidades, zona 10
+
+Repetida sobre las diez especialidades, todas en zona 10 (la única zona sincronizada hasta ahora; repetirla en otras zonas queda para cuando la recolección avance ahí):
+
+| Especialidad     | Total | Con teléfono | Cobertura tel. | Con sitio web | Cobertura web |
+| :--------------- | ----: | -----------: | -------------: | ------------: | ------------: |
+| Cardiología      |    13 |           13 |           100% |             4 |           30% |
+| Oncología        |     5 |            5 |           100% |             3 |           60% |
+| Pediatría        |    19 |           19 |           100% |             8 |           42% |
+| Dermatología     |    20 |           19 |            95% |            14 |           70% |
+| Ginecología      |    20 |           20 |           100% |            16 |           80% |
+| Neurología       |    14 |           14 |           100% |            11 |           78% |
+| Oftalmología     |    20 |           18 |            90% |             7 |           35% |
+| Ortopedia        |     8 |            8 |           100% |             4 |           50% |
+| Psiquiatría      |    17 |           17 |           100% |            13 |           76% |
+| Medicina general |    18 |           18 |           100% |            11 |           61% |
+
+**La cobertura de teléfono es alta y pareja en las diez** (90-100%). **La de sitio web varía mucho** (30% en cardiología, 80% en ginecología): confirma lo que la primera medición ya sugería, que la proporción no se sostiene entre especialidades, y descarta usar la cifra de una sola como representativa de todas.
+
+El total de cardiología bajó de 19 (primera medición) a 13: no es una pérdida de datos, es el mismo fenómeno de `specialtyConflicts` documentado más arriba, aplicado también al campo `zone` por la misma razón (`placeId` como clave del documento). El import de prueba de `cardiologia zona 4 Guatemala` durante el despliegue tocó lugares que ya estaban clasificados en zona 10 y les cambió la zona. Es la misma limitación conocida, no un caso nuevo.
+
+Reproducible para las diez de una corrida, sin gastar llamadas:
+
+```bash
+for s in cardiology oncology pediatrics dermatology gynecology neurology ophthalmology orthopedics psychiatry generalMedicine; do
+  curl -s "http://localhost:4000/api/v1/places?specialty=${s}&zone=10&pageSize=50" \
+    | jq -r --arg s "$s" '{s:$s, total:(.data|length), tel:([.data[]|select(.phoneNumber!="")]|length), web:([.data[]|select(.website!="")]|length)}'
+done
+```
 
 ## Decisiones de diseño
 
