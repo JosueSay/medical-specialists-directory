@@ -18,8 +18,6 @@
   "filters_title": "Search filters",
   "filters_specialty": "Specialty",
   "filters_zone": "Zone",
-  "filters_query": "Search by name",
-  "filters_query_placeholder": "Example: oncology center",
   "filters_page_size": "Results per page",
   "filters_all": "All",
   "filters_submit": "Search",

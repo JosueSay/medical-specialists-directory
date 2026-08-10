@@ -20,7 +20,6 @@ export function fetchPlaces(
     query: {
       ...(query.specialty ? { specialty: query.specialty } : {}),
       ...(query.zone ? { zone: query.zone } : {}),
-      ...(query.q ? { q: query.q } : {}),
       ...(query.page ? { page: query.page } : {}),
       ...(query.pageSize ? { pageSize: query.pageSize } : {}),
     },

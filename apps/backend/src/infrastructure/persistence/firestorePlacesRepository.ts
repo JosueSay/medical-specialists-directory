@@ -12,15 +12,6 @@ export interface FirestoreRepositoryConfig {
   importRunsCollection: string;
 }
 
-/**
- * Documento tal como se guarda en Firestore. Incluye `nameLowercase`, un campo
- * derivado que solo existe para poder filtrar por texto: es un detalle de esta
- * capa y nunca sale hacia el dominio.
- */
-interface PlaceDocument extends Place {
-  nameLowercase: string;
-}
-
 /** Adaptador de persistencia sobre Firestore. */
 export class FirestorePlacesRepository implements PlacesRepository {
   constructor(
@@ -37,9 +28,8 @@ export class FirestorePlacesRepository implements PlacesRepository {
     const batch = this.db.batch();
 
     for (const place of places) {
-      const document: PlaceDocument = { ...place, nameLowercase: place.name.toLowerCase() };
       // merge conserva createdAt del documento existente y hace la escritura idempotente
-      batch.set(collection.doc(place.placeId), document, { merge: true });
+      batch.set(collection.doc(place.placeId), place, { merge: true });
     }
 
     await batch.commit();
@@ -57,17 +47,7 @@ export class FirestorePlacesRepository implements PlacesRepository {
       query = query.where('zone', '==', filters.zone);
     }
 
-    if (filters.q) {
-      // Firestore no tiene busqueda de texto completo: se filtra por prefijo
-      // del nombre en minusculas. Una busqueda mas rica requiere un indice externo.
-      const prefix = filters.q.trim().toLowerCase();
-      query = query
-        .where('nameLowercase', '>=', prefix)
-        .where('nameLowercase', '<', `${prefix}`)
-        .orderBy('nameLowercase');
-    } else {
-      query = query.orderBy('name');
-    }
+    query = query.orderBy('name');
 
     const totalSnapshot = await query.count().get();
     const totalItems = totalSnapshot.data().count;
@@ -77,10 +57,7 @@ export class FirestorePlacesRepository implements PlacesRepository {
       .limit(pageSize)
       .get();
 
-    const items = snapshot.docs.map((doc) => {
-      const { nameLowercase: _ignored, ...place } = doc.data() as PlaceDocument;
-      return place;
-    });
+    const items = snapshot.docs.map((doc) => doc.data() as Place);
 
     return { items, totalItems };
   }

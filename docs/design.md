@@ -579,9 +579,10 @@ Query params:
 | :---------- | :----- | :------------------------------------------ |
 | `specialty` | string | Especialidad médica a filtrar               |
 | `zone`      | string | Zona administrativa                         |
-| `q`         | string | Búsqueda de texto libre sobre el nombre     |
 | `page`      | number | Página actual, por defecto 1                |
 | `pageSize`  | number | Tamaño de página, por defecto 10, máximo 50 |
+
+Los resultados se devuelven ordenados por nombre. **No existe búsqueda por texto libre**, y la ausencia es deliberada: ver [Por qué no hay búsqueda por texto](#por-qué-no-hay-búsqueda-por-texto).
 
 Respuesta `200 OK`:
 
@@ -615,6 +616,18 @@ Respuesta `200 OK`:
 ```
 
 El campo `stale` es booleano: vale `true` cuando el registro superó el TTL. Un `phoneNumber` o un `website` vacío se devuelve como cadena vacía, nunca omitido ni sustituido por otra fuente.
+
+#### Por qué no hay búsqueda por texto
+
+El contrato tuvo un parámetro `q` de búsqueda libre sobre el nombre. Se retiró, y la razón vale la pena dejarla escrita porque parece una pérdida de funcionalidad y no lo es.
+
+**Contradecía una decisión ya tomada.** El catálogo cerrado existe justamente para que el usuario no escriba texto libre: acota el costo, evita consultas arbitrarias y hace que la cobertura sea documentable. Un campo de búsqueda abierto reintroducía por la puerta de atrás lo que el catálogo cierra por delante. El enunciado tampoco lo pide: enumera `page`, `pageSize`, especialidad y zona.
+
+**Y no podía implementarse igual en los dos adaptadores.** Firestore no tiene búsqueda de texto completo. El adaptador en memoria resolvía `q` como subcadena, y el de Firestore como prefijo sobre un campo auxiliar `nameLowercase`. No son la misma operación: buscar `cardio` encuentra `Clínica Cardiológica del Valle` por subcadena, pero no por prefijo, porque el nombre empieza por otra palabra. Y en nombres de establecimientos médicos el término distintivo casi nunca va primero, así que la variante por prefijo habría sido inútil en la práctica.
+
+Dos implementaciones del mismo puerto que devuelven conjuntos distintos ante la misma consulta rompen la propiedad que justifica la arquitectura: que la infraestructura sea sustituible sin que el dominio lo note. Sostener `q` exigía un índice invertido externo, que excede el alcance del proyecto, o resolver el filtro en memoria tras traer los resultados, lo que falsea el conteo de la paginación y lee más documentos de los necesarios.
+
+Retirarlo elimina el problema en lugar de administrarlo. Si el equipo decidiera recuperarlo, la vía honesta sería declarar la búsqueda como prefijo en el contrato y alinear ambos adaptadores, asumiendo su limitación de forma explícita.
 
 ### `GET /api/v1/specialties`
 

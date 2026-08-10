@@ -53,10 +53,13 @@ export interface CreatePlaceImportRequest {
   zone: string;
 }
 
+/**
+ * Los filtros provienen de catalogos cerrados: no hay busqueda por texto libre.
+ * Ver la decision correspondiente en docs/design.md.
+ */
 export interface ListPlacesQuery {
   specialty?: Specialty;
   zone?: string;
-  q?: string;
   page?: number;
   pageSize?: number;
 }

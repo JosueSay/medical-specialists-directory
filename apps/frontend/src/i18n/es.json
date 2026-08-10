@@ -18,8 +18,6 @@
   "filters_title": "Filtros de busqueda",
   "filters_specialty": "Especialidad",
   "filters_zone": "Zona",
-  "filters_query": "Buscar por nombre",
-  "filters_query_placeholder": "Ejemplo: centro oncologico",
   "filters_page_size": "Resultados por pagina",
   "filters_all": "Todas",
   "filters_submit": "Buscar",

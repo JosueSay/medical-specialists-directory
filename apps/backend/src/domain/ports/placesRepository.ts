@@ -1,11 +1,16 @@
 import type { Specialty } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 
-/** Filtros soportados por la consulta al directorio. */
+/**
+ * Filtros soportados por la consulta al directorio.
+ *
+ * Ambos provienen de catalogos cerrados, de modo que no existe busqueda por
+ * texto libre: un filtro de ese tipo obligaria a cada adaptador a resolverlo a
+ * su manera y las implementaciones dejarian de ser intercambiables.
+ */
 export interface PlaceFilters {
   specialty?: Specialty;
   zone?: string;
-  q?: string;
 }
 
 export interface PagedResult<TItem> {

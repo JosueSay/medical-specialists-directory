@@ -69,6 +69,8 @@ Un `GET` nunca modifica estado. En este proyecto eso tiene una consecuencia conc
 
 Los filtros usan el nombre del campo: `?specialty=cardiology&zone=10`.
 
+`q` es la convención cuando hace falta búsqueda libre, pero **este proyecto no la expone**: sus filtros provienen de catálogos cerrados y ningún adaptador de persistencia puede resolver texto libre de forma equivalente. El razonamiento está en [design.md](../design.md#por-qué-no-hay-búsqueda-por-texto).
+
 ## Paginación
 
 Obligatoria en cualquier endpoint que pueda devolver muchos registros. `pageSize` tiene un máximo declarado y un valor fuera de rango responde `400`.

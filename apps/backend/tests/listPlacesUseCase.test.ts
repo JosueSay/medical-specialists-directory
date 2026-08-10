@@ -35,11 +35,11 @@ describe('ListPlacesUseCase', () => {
     expect(secondPage.items[0]?.placeId).not.toBe(firstPage.items[0]?.placeId);
   });
 
-  it('busca por texto libre sobre el nombre', async () => {
-    const result = await buildUseCase().execute({ q: 'cardio', page: 1, pageSize: 10 });
+  it('ordena los resultados por nombre', async () => {
+    const result = await buildUseCase().execute({ page: 1, pageSize: 50 });
+    const names = result.items.map((place) => place.name);
 
-    expect(result.totalItems).toBeGreaterThan(0);
-    expect(result.items.every((place) => place.name.toLowerCase().includes('cardio'))).toBe(true);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
   });
 
   it('devuelve solo los campos del contrato, sin campos internos', async () => {

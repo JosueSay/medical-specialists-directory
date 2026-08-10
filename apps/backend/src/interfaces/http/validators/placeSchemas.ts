@@ -30,7 +30,6 @@ export const createPlaceImportSchema = z.object({
 export const listPlacesQuerySchema = z.object({
   specialty: z.string().min(1).optional(),
   zone: zoneSchema.optional(),
-  q: z.string().min(1).max(120).optional(),
   page: z.coerce.number().int().min(1).default(PAGINATION_DEFAULTS.page),
   pageSize: z.coerce
     .number()

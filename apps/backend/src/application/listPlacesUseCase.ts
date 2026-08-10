@@ -12,7 +12,6 @@ import { AppError } from '@/shared/appError.js';
 export interface ListPlacesInput {
   specialty?: string;
   zone?: string;
-  q?: string;
   page: number;
   pageSize: number;
 }
@@ -56,7 +55,6 @@ export class ListPlacesUseCase {
     const filters: PlaceFilters = {
       ...(specialty ? { specialty } : {}),
       ...(input.zone ? { zone: input.zone } : {}),
-      ...(input.q ? { q: input.q } : {}),
     };
 
     const result = await this.repository.findBy(filters, input.page, input.pageSize);

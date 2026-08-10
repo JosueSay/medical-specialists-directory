@@ -23,12 +23,14 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, PAGINATION_DEFAULTS.maxPageSize];
  * Formulario de busqueda. Los filtros se traducen a query params del endpoint
  * de consulta; el selector de especialidad se arma desde el catalogo del
  * contrato, asi que no puede ofrecer un valor que el backend rechace.
+ *
+ * No hay campo de texto libre: el contrato solo admite especialidad y zona,
+ * ambas de catalogo cerrado.
  */
 export function PlaceFilters({ disabled, onSearch }: PlaceFiltersProps) {
   const { t } = useI18n();
   const [specialty, setSpecialty] = useState<string>('');
   const [zone, setZone] = useState<string>('');
-  const [q, setQ] = useState<string>('');
   const [pageSize, setPageSize] = useState<number>(clientEnv.defaultPageSize);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
@@ -36,7 +38,6 @@ export function PlaceFilters({ disabled, onSearch }: PlaceFiltersProps) {
     onSearch({
       ...(specialty ? { specialty: specialty as Specialty } : {}),
       ...(zone.trim() ? { zone: zone.trim() } : {}),
-      ...(q.trim() ? { q: q.trim() } : {}),
       pageSize,
     });
   };
@@ -44,7 +45,6 @@ export function PlaceFilters({ disabled, onSearch }: PlaceFiltersProps) {
   const handleReset = (): void => {
     setSpecialty('');
     setZone('');
-    setQ('');
     setPageSize(clientEnv.defaultPageSize);
     onSearch({ pageSize: clientEnv.defaultPageSize });
   };
@@ -53,7 +53,7 @@ export function PlaceFilters({ disabled, onSearch }: PlaceFiltersProps) {
     <Card>
       <CardHeader title={t('filters_title')} />
       <CardBody>
-        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <SelectField
             label={t('filters_specialty')}
             value={specialty}
@@ -75,13 +75,6 @@ export function PlaceFilters({ disabled, onSearch }: PlaceFiltersProps) {
             placeholder="4"
           />
 
-          <TextField
-            label={t('filters_query')}
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-            placeholder={t('filters_query_placeholder')}
-          />
-
           <SelectField
             label={t('filters_page_size')}
             value={String(pageSize)}
@@ -92,7 +85,7 @@ export function PlaceFilters({ disabled, onSearch }: PlaceFiltersProps) {
             }))}
           />
 
-          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
             <Button type="submit" disabled={disabled}>
               <Search size={16} aria-hidden="true" />
               {t('filters_submit')}

@@ -17,7 +17,6 @@ export function createPlacesController(listPlaces: ListPlacesUseCase) {
         const result = await listPlaces.execute({
           ...(query.specialty ? { specialty: query.specialty } : {}),
           ...(query.zone ? { zone: query.zone } : {}),
-          ...(query.q ? { q: query.q } : {}),
           page: query.page,
           pageSize: query.pageSize,
         });

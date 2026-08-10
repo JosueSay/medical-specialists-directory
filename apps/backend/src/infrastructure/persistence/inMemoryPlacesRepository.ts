@@ -36,17 +36,12 @@ export class InMemoryPlacesRepository implements PlacesRepository {
   }
 
   async findBy(filters: PlaceFilters, page: number, pageSize: number): Promise<PagedResult<Place>> {
-    const normalizedQuery = filters.q?.trim().toLowerCase();
-
     const matches = [...this.places.values()]
       .filter((place) => {
         if (filters.specialty && place.specialty !== filters.specialty) {
           return false;
         }
         if (filters.zone && place.zone !== filters.zone) {
-          return false;
-        }
-        if (normalizedQuery && !place.name.toLowerCase().includes(normalizedQuery)) {
           return false;
         }
         return true;
