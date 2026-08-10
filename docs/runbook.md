@@ -183,7 +183,7 @@ Qué pide la primera vez:
 | Corepack quiere descargar pnpm  | `Y`       | La imagen lo prepara como `root` y el contenedor corre como `node`      |
 | Cuántos días conservar imágenes | `1`       | Cada despliegue genera una imagen; sin límite se acumulan y se facturan |
 
-Tarda entre tres y ocho minutos: habilita seis APIs, empaqueta, sube y compila en la nube. Antes de subir importa el módulo para descubrir las funciones exportadas, y por eso aparecen los logs de arranque del backend con la configuración de producción.
+Tarda entre tres y ocho minutos: habilita seis APIs, empaqueta, sube y compila en la nube. Antes de subir importa el módulo para descubrir las funciones exportadas, con un limite de 10 segundos para esa carga.
 
 Termina con `Deploy complete!` y la URL. Comprobar:
 
@@ -242,7 +242,9 @@ docker compose --profile tools run --rm hermes deploy --only functions
 docker compose --profile tools run --rm hermes deploy --only hosting
 ```
 
-Entre tres y ocho minutos el primero. Por el camino aparecen los logs de arranque del backend con la configuración de producción: el CLI importa el módulo para descubrir las funciones exportadas antes de subirlo, no es que esté corriendo.
+Entre tres y ocho minutos el primero. Antes de subir, el CLI importa el módulo para descubrir las funciones exportadas, y solo dispone de **10 segundos**: por eso el contenedor se construye en la primera petición y no al cargar el módulo.
+
+Consecuencia práctica: la configuración de producción ya no aparece en la salida del despliegue. Se comprueba en los logs de la función después de la primera petición.
 
 ### 6. Verificar
 
@@ -381,4 +383,5 @@ Formato, linter, tipos y pruebas en el mismo orden que la integración continua.
 | `Command failed with signal "SIGINT"` al pulsar `Ctrl+C`             | Ninguna: pnpm reporta la señal como fallo                                                        | Ninguna                                                                                            |
 | La petición sale con estado `200` y la interfaz muestra error        | El origen del frontend no figura en `CORS_ALLOWED_ORIGINS`                                       | Actualizarlo al puerto real, o poner `VITE_API_BASE_URL=/api/v1` para pasar por el proxy de Vite   |
 | `net::ERR_UNSAFE_PORT` en el navegador                               | El puerto elegido está en la lista de bloqueados de Chrome                                       | Cambiarlo: 6000, 6666 y 10080 están vetados; 4000, 6100 u 8080 sirven                              |
+| `Cannot determine backend specification. Timeout after 10000`        | El módulo tarda más de 10 s en cargar durante el análisis del despliegue                         | No inicializar nada pesado al importar: construirlo en la primera petición                         |
 | Las pruebas de integración tardan minutos y fallan por tiempo        | El emulador no está corriendo                                                                    | `docker compose --profile emulator up -d mnemosyne`                                                |
