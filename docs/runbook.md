@@ -357,6 +357,12 @@ pnpm run --filter @msd/backend test:integration
 
 No consumen cuota ni tocan la base real: el emulador es local. El criterio de qué cubren está en [standards/testing.md](standards/testing.md#pruebas-de-integración).
 
+## Probar la API sin escribir comandos
+
+Los `curl` de este documento existen para diagnosticar durante el despliegue. Para el trabajo diario hay una colección de Hoppscotch con los 19 requests de la API, sus casos de error y sus comprobaciones, en [hoppscotch/](hoppscotch/README.md).
+
+Trae dos entornos, `dev-msd` y `prod-msd`, con las mismas variables y distintos valores: el mismo conjunto de requests sirve para local y para el despliegue, y cambiar de uno a otro es cambiar el entorno seleccionado.
+
 ## Antes de abrir un Pull Request
 
 ```bash

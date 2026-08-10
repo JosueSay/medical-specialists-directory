@@ -1,0 +1,592 @@
+{
+  "v": 12,
+  "id": "coll-msd-api",
+  "name": "MSD - Directorio de Especialistas Medicos",
+  "folders": [
+    {
+      "v": 1,
+      "id": "f-msd-00",
+      "name": "00 - Pipeline de despliegue",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "id": "r-msd-hello",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "EP-01 helloWorld (200)",
+          "method": "GET",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_FUNCTIONS>>/helloWorld",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\npw.test(\"responde Hello World\", () => { pw.expect(pw.response.body).toBe(\"Hello World\"); });\n",
+          "description": "Entregable de la Semana 1. Funcion aparte de la API, sin whitelist y sin secretos: su unico proposito es confirmar que el pipeline de despliegue funciona.\n\nLa URL no esta escrita a mano: URL_FUNCTIONS ya trae proyecto y region, de modo que apuntar a otro proyecto es cambiar PROJECT_ID y nada mas. En dev requiere el emulador de Functions levantado.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-health",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "EP-02 health (200)",
+          "method": "GET",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_FUNCTIONS>>/api/health",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\npw.test(\"code service_healthy\", () => { pw.expect(pw.response.body.code).toBe(\"service_healthy\"); });\npw.test(\"status ok\", () => { pw.expect(pw.response.body.data.status).toBe(\"ok\"); });\n",
+          "description": "Exento de la whitelist a proposito: la comprobacion del contenedor se origina dentro de el, con una IP interna que nunca estara autorizada. Por eso no revela entorno, version ni estado de dependencias.\n\nVa por URL_FUNCTIONS y no por URL_BASE: Hosting solo reescribe /api/**, de modo que /health pedido al dominio del sitio devuelve el index.html de la interfaz con un 200 que engana.\n\nEl segmento `api` de la ruta es el NOMBRE DE LA FUNCION, no el prefijo del contrato: la funcion `api` envuelve la aplicacion Express entera, y dentro de ella /health cuelga de la raiz.",
+          "preRequestScript": "",
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "description": "Comprueban que el proyecto compila, sube y responde. Ninguno toca el dominio ni consulta Firestore, y ninguno pasa por la whitelist. Son los mas baratos y los primeros que conviene correr: si estos fallan, lo que sigue no tiene sentido.",
+      "preRequestScript": ""
+    },
+    {
+      "v": 1,
+      "id": "f-msd-01",
+      "name": "01 - Catalogo",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "id": "r-msd-spec",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "EP-03 specialties (200)",
+          "method": "GET",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/specialties",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\npw.test(\"code specialty_list\", () => { pw.expect(pw.response.body.code).toBe(\"specialty_list\"); });\nconst data = pw.response.body.data;\npw.test(\"data es lista\", () => { pw.expect(Array.isArray(data)).toBe(true); });\npw.test(\"son diez especialidades\", () => { pw.expect(data.length).toBe(10); });\npw.test(\"cada entrada trae sus keywords\", () => { data.forEach(s => pw.expect(Array.isArray(s.keywords)).toBe(true)); });\npw.test(\"la variable SPECIALTY pertenece al catalogo\", () => { pw.expect(data.map(s => s.specialty)).toInclude(pw.env.get(\"SPECIALTY\")); });\n",
+          "description": "Diez especialidades. La etiqueta visible no viaja aqui: el frontend la resuelve con la clave specialty_<key> en sus diccionarios, de modo que el catalogo quede libre de texto de interfaz.",
+          "preRequestScript": "",
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "description": "El catalogo cerrado del que salen los filtros validos. Conviene correrlo antes que la consulta: de aqui salen los valores que las variables SPECIALTY y ZONE pueden tomar.",
+      "preRequestScript": ""
+    },
+    {
+      "v": 1,
+      "id": "f-msd-02",
+      "name": "02 - Consulta (GET /places)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "id": "r-msd-list",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-01 sin filtros (200)",
+          "method": "GET",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\npw.test(\"code place_list\", () => { pw.expect(pw.response.body.code).toBe(\"place_list\"); });\nconst m = pw.response.body.meta.pagination;\npw.test(\"meta.pagination completa\", () => { [\"page\",\"pageSize\",\"totalItems\",\"totalPages\"].forEach(k => pw.expect(m[k]).not.toBe(undefined)); });\npw.test(\"data no excede pageSize\", () => { pw.expect(pw.response.body.data.length <= m.pageSize).toBe(true); });\n",
+          "description": "Devuelve la base completa paginada. Sirve para conocer el total y de cuantas paginas se compone.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-list-filtros",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-02 por especialidad y zona (200)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "specialty",
+              "value": "<<SPECIALTY>>",
+              "active": true
+            },
+            {
+              "key": "zone",
+              "value": "<<ZONE>>",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\npw.test(\"code place_list\", () => { pw.expect(pw.response.body.code).toBe(\"place_list\"); });\nconst data = pw.response.body.data;\npw.test(\"todo lo devuelto respeta los filtros\", () => { data.forEach(pl => { pw.expect(pl.specialty).toBe(pw.env.get(\"SPECIALTY\")); pw.expect(pl.zone).toBe(pw.env.get(\"ZONE\")); }); });\n",
+          "description": "Los dos filtros se combinan y se resuelven en la consulta a Firestore, no en memoria. Cambiar SPECIALTY o ZONE en el entorno cambia lo que este request pide, sin tocar el request.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-list-pag",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-03 paginacion explicita (200)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "page",
+              "value": "<<PAGE>>",
+              "active": true
+            },
+            {
+              "key": "pageSize",
+              "value": "<<PAGE_SIZE>>",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\nconst m = pw.response.body.meta.pagination;\npw.test(\"respeta la pagina pedida\", () => { pw.expect(String(m.page)).toBe(pw.env.get(\"PAGE\")); });\npw.test(\"respeta el tamano pedido\", () => { pw.expect(String(m.pageSize)).toBe(pw.env.get(\"PAGE_SIZE\")); });\n",
+          "description": "PAGE y PAGE_SIZE gobiernan el recorrido. pageSize admite de 1 a 50; ese techo evita que una sola peticion arrastre la base entera.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-frescura",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-04 marca de frescura (200)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "pageSize",
+              "value": "3",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\nconst data = pw.response.body.data;\npw.test(\"hay al menos un registro para inspeccionar\", () => { pw.expect(data.length > 0).toBe(true); });\npw.test(\"cada registro declara su frescura\", () => { data.forEach(pl => { pw.expect(typeof pl.stale).toBe(\"boolean\"); pw.expect(typeof pl.collectedAt).toBe(\"string\"); }); });\npw.test(\"cada registro conserva la keyword que lo origino\", () => { data.forEach(pl => pw.expect(typeof pl.sourceKeyword).toBe(\"string\")); });\n",
+          "description": "Cada registro trae collectedAt y stale. Un registro vencido se devuelve marcado, nunca omitido ni convertido en lista vacia, y consultarlo jamas dispara una llamada a Google: solo una sincronizacion explicita lo refresca.",
+          "preRequestScript": "",
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "description": "El unico endpoint que consume la UI. Lee de la base propia y NUNCA llama a Google, asi que ningun request de esta carpeta cuesta dinero: se pueden repetir sin limite.\n\nLos filtros salen del catalogo cerrado. Para probar otra especialidad o zona basta cambiar SPECIALTY y ZONE en el entorno, sin tocar ningun request.",
+      "preRequestScript": ""
+    },
+    {
+      "v": 1,
+      "id": "f-msd-03",
+      "name": "03 - Errores de la consulta",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "id": "r-msd-e-pagesize",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-05 pageSize sobre el maximo (400)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "pageSize",
+              "value": "51",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 400\", () => { pw.expect(pw.response.status).toBe(400); });\npw.test(\"code validation_error\", () => { pw.expect(pw.response.body.code).toBe(\"validation_error\"); });\npw.test(\"el detalle senala el campo pageSize\", () => { pw.expect(pw.response.body.errors.details.some(d => d.field === \"pageSize\")).toBe(true); });\npw.test(\"el detalle dice fuera de rango\", () => { pw.expect(pw.response.body.errors.details.some(d => d.code === \"out_of_range\")).toBe(true); });\n",
+          "description": "El techo son 50. Un valor mayor se rechaza antes de tocar la base.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-e-page",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-06 page cero (400)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "page",
+              "value": "0",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 400\", () => { pw.expect(pw.response.status).toBe(400); });\npw.test(\"code validation_error\", () => { pw.expect(pw.response.body.code).toBe(\"validation_error\"); });\n",
+          "description": "La paginacion empieza en 1. El cero no es un caso limite valido sino un error de quien llama.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-e-zona-formato",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-07 zona no numerica (400)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "zone",
+              "value": "centro",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 400\", () => { pw.expect(pw.response.status).toBe(400); });\npw.test(\"code validation_error\", () => { pw.expect(pw.response.body.code).toBe(\"validation_error\"); });\npw.test(\"el detalle senala el campo zone\", () => { pw.expect(pw.response.body.errors.details.some(d => d.field === \"zone\")).toBe(true); });\n",
+          "description": "La zona se valida primero por formato: hasta tres digitos. El valor 'centro' no llega a compararse contra el catalogo.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-e-especialidad",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-08 especialidad fuera del catalogo (422)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "specialty",
+              "value": "<<SPECIALTY_FUERA_DE_CATALOGO>>",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 422\", () => { pw.expect(pw.response.status).toBe(422); });\npw.test(\"code specialty_not_supported\", () => { pw.expect(pw.response.body.code).toBe(\"specialty_not_supported\"); });\n",
+          "description": "422 y no 400: el valor esta bien formado, simplemente no es una de las diez especialidades que el proyecto sostiene.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-e-zona",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-09 zona inexistente (422)",
+          "method": "GET",
+          "params": [
+            {
+              "key": "zone",
+              "value": "<<ZONE_INEXISTENTE>>",
+              "active": true
+            }
+          ],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/places",
+          "responses": {},
+          "testScript": "pw.test(\"status 422\", () => { pw.expect(pw.response.status).toBe(422); });\npw.test(\"code zone_not_supported\", () => { pw.expect(pw.response.body.code).toBe(\"zone_not_supported\"); });\n",
+          "description": "La zona 20 esta bien formada y no existe: al delimitar el municipio, ese territorio quedo en Mixco. Tampoco existen la 22 ni la 23. Son 22 zonas validas, no 25.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-e-404",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "",
+            "contentType": null
+          },
+          "name": "VC-10 ruta inexistente (404)",
+          "method": "GET",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/doctors",
+          "responses": {},
+          "testScript": "pw.test(\"status 404\", () => { pw.expect(pw.response.status).toBe(404); });\npw.test(\"code resource_not_found\", () => { pw.expect(pw.response.body.code).toBe(\"resource_not_found\"); });\n",
+          "description": "Cualquier ruta fuera del contrato responde con el mismo codigo, sin revelar que rutas si existen.",
+          "preRequestScript": "",
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "description": "Cada codigo del catalogo de errores, provocado a proposito. Ninguno cuesta dinero.\n\nLa distincion que separa 400 de 422 no es cosmetica: 400 es un fallo de sintaxis, el valor esta mal formado; 422 es un fallo de regla de negocio, el valor esta bien formado pero fuera del catalogo. Confundirlos haria que la API respondiera codigos distintos ante errores equivalentes.",
+      "preRequestScript": ""
+    },
+    {
+      "v": 1,
+      "id": "f-msd-04",
+      "name": "04 - Sincronizacion (POST /place-imports)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "id": "r-msd-import",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "{\n  \"keyword\": \"<<KEYWORD>>\",\n  \"specialty\": \"<<SPECIALTY>>\",\n  \"zone\": \"<<ZONE>>\"\n}",
+            "contentType": "application/json"
+          },
+          "name": "EP-04 sincronizacion valida (201) [CUESTA DINERO]",
+          "method": "POST",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/place-imports",
+          "responses": {},
+          "testScript": "pw.test(\"status 201\", () => { pw.expect(pw.response.status).toBe(201); });\npw.test(\"code place_import_created\", () => { pw.expect(pw.response.body.code).toBe(\"place_import_created\"); });\nconst d = pw.response.body.data;\npw.test(\"no supera el tope de 2 paginas\", () => { pw.expect(d.pagesFetched <= 2).toBe(true); });\npw.test(\"no supera el tope de 20 resultados\", () => { pw.expect(d.itemsFetched <= 20).toBe(true); });\npw.test(\"el resumen corresponde a la keyword enviada\", () => { pw.expect(d.keyword).toBe(pw.env.get(\"KEYWORD\")); });\npw.test(\"informa los conflictos de especialidad\", () => { pw.expect(Array.isArray(d.specialtyConflicts)).toBe(true); });\n",
+          "description": "Recorre hasta dos paginas de diez resultados, tope de 20 por corrida. Devuelve el resumen de lo que hizo: paginas recorridas, elementos traidos y persistidos, y los lugares que ya existian bajo otra especialidad.\n\nCoste: 2 llamadas facturables, unos 0.07 USD pasado el umbral gratuito.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-import-cooldown",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "{\n  \"keyword\": \"<<KEYWORD>>\",\n  \"specialty\": \"<<SPECIALTY>>\",\n  \"zone\": \"<<ZONE>>\"\n}",
+            "contentType": "application/json"
+          },
+          "name": "VC-11 repetir de inmediato (429) [sin coste]",
+          "method": "POST",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/place-imports",
+          "responses": {},
+          "testScript": "pw.test(\"status 429\", () => { pw.expect(pw.response.status).toBe(429); });\npw.test(\"code place_import_cooldown_active\", () => { pw.expect(pw.response.body.code).toBe(\"place_import_cooldown_active\"); });\n",
+          "description": "Correr este request justo despues del anterior. El turno de esa combinacion de keyword y zona queda tomado durante SYNC_COOLDOWN_MINUTES (60 en despliegue, 1 en desarrollo) y no se llama a Google.\n\nResponde error y no el resumen de la corrida anterior: devolver 201 con datos de otra ejecucion haria que quien llama no pudiera distinguir una sincronizacion real de una omitida.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-import-e-esp",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "{\n  \"keyword\": \"<<KEYWORD>>\",\n  \"specialty\": \"<<SPECIALTY_FUERA_DE_CATALOGO>>\",\n  \"zone\": \"<<ZONE>>\"\n}",
+            "contentType": "application/json"
+          },
+          "name": "VC-12 especialidad fuera del catalogo (422) [sin coste]",
+          "method": "POST",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/place-imports",
+          "responses": {},
+          "testScript": "pw.test(\"status 422\", () => { pw.expect(pw.response.status).toBe(422); });\npw.test(\"code specialty_not_supported\", () => { pw.expect(pw.response.body.code).toBe(\"specialty_not_supported\"); });\n",
+          "description": "Se rechaza antes de tomar el turno y antes de llamar a Google.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-import-e-zona",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "{\n  \"keyword\": \"<<KEYWORD>>\",\n  \"specialty\": \"<<SPECIALTY>>\",\n  \"zone\": \"<<ZONE_INEXISTENTE>>\"\n}",
+            "contentType": "application/json"
+          },
+          "name": "VC-13 zona inexistente (422) [sin coste]",
+          "method": "POST",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/place-imports",
+          "responses": {},
+          "testScript": "pw.test(\"status 422\", () => { pw.expect(pw.response.status).toBe(422); });\npw.test(\"code zone_not_supported\", () => { pw.expect(pw.response.body.code).toBe(\"zone_not_supported\"); });\n",
+          "description": "Sincronizar una zona que no pertenece al municipio gastaria llamadas facturables buscando en un area que el directorio no cubre.",
+          "preRequestScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "17",
+          "id": "r-msd-import-e-vacio",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "{\n  \"keyword\": \"<<KEYWORD>>\"\n}",
+            "contentType": "application/json"
+          },
+          "name": "VC-14 cuerpo incompleto (400) [sin coste]",
+          "method": "POST",
+          "params": [],
+          "headers": [],
+          "endpoint": "<<URL_BASE>>/<<API_PREFIX>>/<<API_VERSION>>/place-imports",
+          "responses": {},
+          "testScript": "pw.test(\"status 400\", () => { pw.expect(pw.response.status).toBe(400); });\npw.test(\"code validation_error\", () => { pw.expect(pw.response.body.code).toBe(\"validation_error\"); });\npw.test(\"el detalle nombra los campos que faltan\", () => { pw.expect(pw.response.body.errors.details.length > 0).toBe(true); });\n",
+          "description": "Los tres campos son obligatorios. El detalle por campo dice cual falta.",
+          "preRequestScript": "",
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "description": "CUIDADO: el primer request de esta carpeta LLAMA A GOOGLE Y CUESTA DINERO. Los demas no.\n\nCada sincronizacion son dos llamadas facturables al SKU Text Search Enterprise, a 0.035 USD cada una pasado el umbral gratuito de 1,000 al mes. Los requests de error se rechazan antes de llegar a Google, asi que se pueden repetir sin coste.\n\nPara sincronizar otra especialidad o zona basta cambiar KEYWORD, SPECIALTY y ZONE en el entorno. Una especialidad nueva, en cambio, exige tocar el catalogo del contrato y volver a desplegar: ver el runbook.",
+      "preRequestScript": ""
+    },
+    {
+      "v": 1,
+      "id": "f-msd-05",
+      "name": "05 - Diagnostico de la API key",
+      "folders": [],
+      "requests": [
+        {
+          "v": "17",
+          "id": "r-msd-key",
+          "auth": {
+            "authType": "inherit",
+            "authActive": true
+          },
+          "body": {
+            "body": "{\n  \"textQuery\": \"<<KEYWORD>>\",\n  \"languageCode\": \"es\",\n  \"regionCode\": \"GT\",\n  \"pageSize\": 1\n}",
+            "contentType": "application/json"
+          },
+          "name": "DG-01 Places API directo (200) [1 llamada]",
+          "method": "POST",
+          "params": [],
+          "headers": [
+            {
+              "key": "X-Goog-Api-Key",
+              "value": "<<GOOGLE_MAPS_API_KEY>>",
+              "active": true
+            },
+            {
+              "key": "X-Goog-FieldMask",
+              "value": "places.id,places.displayName,places.formattedAddress",
+              "active": true
+            }
+          ],
+          "endpoint": "<<GOOGLE_PLACES_BASE_URL>>/places:searchText",
+          "responses": {},
+          "testScript": "pw.test(\"status 200\", () => { pw.expect(pw.response.status).toBe(200); });\npw.test(\"devuelve al menos un establecimiento\", () => { pw.expect(pw.response.body.places.length > 0).toBe(true); });\n",
+          "description": "Una sola llamada comprueba a la vez que la key es valida, que Places API (New) esta habilitada, que las restricciones de IP y de API coinciden y que la cuota no bloquea.\n\nEl field mask pide solo identificador, nombre y direccion: son campos del SKU Pro, con 5,000 llamadas gratuitas al mes, de modo que la prueba no consume el presupuesto del SKU Enterprise que gasta la campana.\n\nUn 403 SERVICE_DISABLED significa que se habilito la Places API heredada en lugar de la nueva.",
+          "preRequestScript": "",
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": [],
+      "description": "Llama a Google DIRECTAMENTE, sin pasar por el backend. Es el equivalente en Hoppscotch del curl que abre la Fase 2 del runbook, y sirve para separar dos fallos que se parecen: una key mal configurada de un backend mal configurado.\n\nRequiere pegar la key en la variable GOOGLE_MAPS_API_KEY del entorno, marcada como secreta y por eso sin valor versionado.",
+      "preRequestScript": ""
+    }
+  ],
+  "auth": {
+    "authType": "none",
+    "authActive": true
+  },
+  "headers": [],
+  "variables": [],
+  "description": "API del Directorio de Especialistas Medicos. Se importa junto con uno de los dos entornos, dev-msd o prod-msd, y el mismo conjunto de requests sirve para ambos: lo unico que cambia es el entorno seleccionado.\n\nEl orden de las carpetas es el orden en que conviene correrlas. Solo la carpeta 04 gasta dinero, y dentro de ella solo el primer request.",
+  "preRequestScript": ""
+}

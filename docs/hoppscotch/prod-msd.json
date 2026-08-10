@@ -1,0 +1,97 @@
+{
+  "id": "env-msd-prod",
+  "v": 2,
+  "name": "prod-msd",
+  "variables": [
+    {
+      "key": "PROJECT_ID",
+      "secret": false,
+      "currentValue": "bamboo-mercury-504617-g5",
+      "initialValue": "bamboo-mercury-504617-g5"
+    },
+    {
+      "key": "REGION",
+      "secret": false,
+      "currentValue": "us-central1",
+      "initialValue": "us-central1"
+    },
+    {
+      "key": "API_PREFIX",
+      "secret": false,
+      "currentValue": "api",
+      "initialValue": "api"
+    },
+    {
+      "key": "API_VERSION",
+      "secret": false,
+      "currentValue": "v1",
+      "initialValue": "v1"
+    },
+    {
+      "key": "URL_BASE",
+      "secret": false,
+      "currentValue": "https://<<PROJECT_ID>>.web.app",
+      "initialValue": "https://<<PROJECT_ID>>.web.app"
+    },
+    {
+      "key": "URL_FUNCTIONS",
+      "secret": false,
+      "currentValue": "https://<<REGION>>-<<PROJECT_ID>>.cloudfunctions.net",
+      "initialValue": "https://<<REGION>>-<<PROJECT_ID>>.cloudfunctions.net"
+    },
+    {
+      "key": "SPECIALTY",
+      "secret": false,
+      "currentValue": "cardiology",
+      "initialValue": "cardiology"
+    },
+    {
+      "key": "ZONE",
+      "secret": false,
+      "currentValue": "10",
+      "initialValue": "10"
+    },
+    {
+      "key": "PAGE",
+      "secret": false,
+      "currentValue": "1",
+      "initialValue": "1"
+    },
+    {
+      "key": "PAGE_SIZE",
+      "secret": false,
+      "currentValue": "10",
+      "initialValue": "10"
+    },
+    {
+      "key": "KEYWORD",
+      "secret": false,
+      "currentValue": "cardiologia zona 10 Guatemala",
+      "initialValue": "cardiologia zona 10 Guatemala"
+    },
+    {
+      "key": "SPECIALTY_FUERA_DE_CATALOGO",
+      "secret": false,
+      "currentValue": "dentistry",
+      "initialValue": "dentistry"
+    },
+    {
+      "key": "ZONE_INEXISTENTE",
+      "secret": false,
+      "currentValue": "20",
+      "initialValue": "20"
+    },
+    {
+      "key": "GOOGLE_PLACES_BASE_URL",
+      "secret": false,
+      "currentValue": "https://places.googleapis.com/v1",
+      "initialValue": "https://places.googleapis.com/v1"
+    },
+    {
+      "key": "GOOGLE_MAPS_API_KEY",
+      "secret": true,
+      "currentValue": "",
+      "initialValue": ""
+    }
+  ]
+}

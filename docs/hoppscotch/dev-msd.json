@@ -1,0 +1,115 @@
+{
+  "id": "env-msd-dev",
+  "v": 2,
+  "name": "dev-msd",
+  "variables": [
+    {
+      "key": "PROJECT_ID",
+      "secret": false,
+      "currentValue": "bamboo-mercury-504617-g5",
+      "initialValue": "bamboo-mercury-504617-g5"
+    },
+    {
+      "key": "REGION",
+      "secret": false,
+      "currentValue": "us-central1",
+      "initialValue": "us-central1"
+    },
+    {
+      "key": "HOST",
+      "secret": false,
+      "currentValue": "localhost",
+      "initialValue": "localhost"
+    },
+    {
+      "key": "BACKEND_PORT",
+      "secret": false,
+      "currentValue": "4000",
+      "initialValue": "4000"
+    },
+    {
+      "key": "FUNCTIONS_EMULATOR_PORT",
+      "secret": false,
+      "currentValue": "5001",
+      "initialValue": "5001"
+    },
+    {
+      "key": "API_PREFIX",
+      "secret": false,
+      "currentValue": "api",
+      "initialValue": "api"
+    },
+    {
+      "key": "API_VERSION",
+      "secret": false,
+      "currentValue": "v1",
+      "initialValue": "v1"
+    },
+    {
+      "key": "URL_BASE",
+      "secret": false,
+      "currentValue": "http://<<HOST>>:<<BACKEND_PORT>>",
+      "initialValue": "http://<<HOST>>:<<BACKEND_PORT>>"
+    },
+    {
+      "key": "URL_FUNCTIONS",
+      "secret": false,
+      "currentValue": "http://<<HOST>>:<<FUNCTIONS_EMULATOR_PORT>>/<<PROJECT_ID>>/<<REGION>>",
+      "initialValue": "http://<<HOST>>:<<FUNCTIONS_EMULATOR_PORT>>/<<PROJECT_ID>>/<<REGION>>"
+    },
+    {
+      "key": "SPECIALTY",
+      "secret": false,
+      "currentValue": "cardiology",
+      "initialValue": "cardiology"
+    },
+    {
+      "key": "ZONE",
+      "secret": false,
+      "currentValue": "10",
+      "initialValue": "10"
+    },
+    {
+      "key": "PAGE",
+      "secret": false,
+      "currentValue": "1",
+      "initialValue": "1"
+    },
+    {
+      "key": "PAGE_SIZE",
+      "secret": false,
+      "currentValue": "10",
+      "initialValue": "10"
+    },
+    {
+      "key": "KEYWORD",
+      "secret": false,
+      "currentValue": "cardiologia zona 10 Guatemala",
+      "initialValue": "cardiologia zona 10 Guatemala"
+    },
+    {
+      "key": "SPECIALTY_FUERA_DE_CATALOGO",
+      "secret": false,
+      "currentValue": "dentistry",
+      "initialValue": "dentistry"
+    },
+    {
+      "key": "ZONE_INEXISTENTE",
+      "secret": false,
+      "currentValue": "20",
+      "initialValue": "20"
+    },
+    {
+      "key": "GOOGLE_PLACES_BASE_URL",
+      "secret": false,
+      "currentValue": "https://places.googleapis.com/v1",
+      "initialValue": "https://places.googleapis.com/v1"
+    },
+    {
+      "key": "GOOGLE_MAPS_API_KEY",
+      "secret": true,
+      "currentValue": "",
+      "initialValue": ""
+    }
+  ]
+}
