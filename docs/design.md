@@ -564,10 +564,32 @@ Respuesta `201 Created`:
     "zone": "10",
     "pagesFetched": 2,
     "itemsFetched": 20,
-    "itemsUpserted": 18
+    "itemsUpserted": 18,
+    "specialtyConflicts": [],
+    "startedAt": "2026-08-10T09:06:42.079Z",
+    "finishedAt": "2026-08-10T09:06:43.263Z"
   }
 }
 ```
+
+#### `specialtyConflicts`
+
+`placeId` es la clave del documento en Firestore (P1-05, evita duplicados). Tiene un costo: Places API no separa negocios por especialidad, así que el mismo lugar real puede aparecer en los resultados de más de una búsqueda — un centro médico grande, por ejemplo, coincide tanto con `oncologia` como con `medicina general`. Como la escritura es un `merge` por `placeId`, la sincronización más reciente le **cambia** la etiqueta `specialty` a ese documento, no la agrega. El anterior desaparece sin dejar rastro salvo por este campo.
+
+Se detectó corriendo las diez especialidades sobre la misma zona: de 168 lugares que reportó cada corrida como `itemsUpserted`, solo 159 quedaron como documentos distintos en Firestore. `specialtyConflicts` deja esa pérdida visible en el momento en que ocurre — antes solo se podía notar contando documentos después y restando a mano — con el `placeId`, el nombre y las dos especialidades involucradas:
+
+```json
+"specialtyConflicts": [
+  {
+    "placeId": "ChIJ_ejemplo",
+    "name": "Centro Medico Compartido",
+    "previousSpecialty": "oncology",
+    "newSpecialty": "cardiology"
+  }
+]
+```
+
+Queda como detección, no como corrección: el sistema sigue clasificando cada lugar bajo una única especialidad, la de la sincronización más reciente. Guardar varias especialidades por lugar es un cambio de modelo de datos mayor (deja de ser un campo simple, pasa a ser una lista, y afecta los índices y los filtros de `GET /api/v1/places`) que no se justifica para el alcance de este proyecto. Queda pendiente para P1 decidir si se documenta como limitación conocida o se aborda.
 
 ### `GET /api/v1/places`
 
@@ -875,11 +897,11 @@ Cada captura se toma de la pantalla que muestra el resultado ya aplicado, no del
 
 De la Semana 3, cuyo entregable es la API paginada y la UI accesible vía Firebase Hosting. UI desplegada: [https://adfasdfasfd-1899a.web.app](https://adfasdfasfd-1899a.web.app). En proceso de completarse; las capturas de `deploy --only functions:api:helloWorld`, la segunda API key y el secreto en Secret Manager quedan pendientes de agregar.
 
-| Evidencia                                    | Captura                                                                        | Qué se comprueba en ella                                                          |
-| :-------------------------------------------- | :------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------- |
-| UI desplegada en Hosting, consumiendo la API real | [hosting-ui-working.png](images/hosting-ui-working.png)                     | Filtros de especialidad y zona, tabla con datos reales de Firestore, fecha de recolección |
+| Evidencia                                                      | Captura                                                                             | Qué se comprueba en ella                                                                                                               |
+| :------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+| UI desplegada en Hosting, consumiendo la API real              | [hosting-ui-working.png](images/hosting-ui-working.png)                             | Filtros de especialidad y zona, tabla con datos reales de Firestore, fecha de recolección                                              |
 | Campo `sitio_web` apuntando a una red social, no a una clínica | [place-website-field-social-media.png](images/place-website-field-social-media.png) | El enlace "Abrir" de un resultado real lleva a un perfil de Facebook, evidencia de la advertencia de la postura ética sobre este campo |
-| Paginación funcionando contra la API desplegada | [hosting-pagination-working.png](images/hosting-pagination-working.png) | `Página 1 de 4, 19 registros` construido a partir de `meta.pagination`, controles de avance |
+| Paginación funcionando contra la API desplegada                | [hosting-pagination-working.png](images/hosting-pagination-working.png)             | `Página 1 de 4, 19 registros` construido a partir de `meta.pagination`, controles de avance                                            |
 
 Dos fallos aparecieron al ejecutar el despliegue completo por primera vez, ninguno visible en desarrollo local porque ahí no existe el salto de Hosting ni un origen de navegador distinto del propio backend:
 
