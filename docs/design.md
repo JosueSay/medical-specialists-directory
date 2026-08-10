@@ -879,6 +879,7 @@ De la Semana 3, cuyo entregable es la API paginada y la UI accesible vía Fireba
 | :-------------------------------------------- | :------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------- |
 | UI desplegada en Hosting, consumiendo la API real | [hosting-ui-working.png](images/hosting-ui-working.png)                     | Filtros de especialidad y zona, tabla con datos reales de Firestore, fecha de recolección |
 | Campo `sitio_web` apuntando a una red social, no a una clínica | [place-website-field-social-media.png](images/place-website-field-social-media.png) | El enlace "Abrir" de un resultado real lleva a un perfil de Facebook, evidencia de la advertencia de la postura ética sobre este campo |
+| Paginación funcionando contra la API desplegada | [hosting-pagination-working.png](images/hosting-pagination-working.png) | `Página 1 de 4, 19 registros` construido a partir de `meta.pagination`, controles de avance |
 
 Dos fallos aparecieron al ejecutar el despliegue completo por primera vez, ninguno visible en desarrollo local porque ahí no existe el salto de Hosting ni un origen de navegador distinto del propio backend:
 
