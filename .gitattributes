@@ -1,0 +1,24 @@
+# Los finales de linea los decide el repositorio y no la maquina de cada quien.
+#
+# Sin este archivo cada persona depende de su `core.autocrlf`, que nadie
+# coordino y que ni siquiera es uniforme dentro de un mismo equipo: en Git para
+# Windows suele venir en `true` y en WSL o macOS en `false`, de modo que el
+# mismo repositorio se descarga distinto segun desde donde se abra.
+#
+# El caso que esto evita no es cosmetico. `docker/firebase-cli/entrypoint.sh`
+# descargado con CRLF empieza por `#!/bin/sh` seguido de un retorno de carro: el
+# contenedor busca un interprete llamado `sh\r`, no lo encuentra y falla con
+# `no such file or directory` senalando un archivo que si existe.
+#
+# Adoptarlo no cambia nada de lo ya versionado. El indice esta al 100% en LF, de
+# modo que `git add --renormalize .` no encuentra nada que normalizar: este
+# archivo solo fija como se escriben los archivos al descargarlos, y por eso no
+# hace falta que nadie haga nada al recibirlo.
+#
+# Ningun archivo del proyecto necesita CRLF: no hay `.bat`, `.cmd` ni `.ps1`.
+* text=auto eol=lf
+
+# Las capturas de evidencia. `text=auto` ya las detecta como binarias, pero
+# declararlo cierra la puerta a que una heuristica se equivoque y corrompa una
+# imagen convirtiendo bytes que parecian saltos de linea.
+*.png binary
