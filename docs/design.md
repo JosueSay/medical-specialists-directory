@@ -761,43 +761,72 @@ Cloud Armor se contempla como alternativa avanzada al middleware de whitelist. N
 
 El presupuesto es un requisito del proyecto, no una recomendación. Cada integrante responde por el gasto de su cuenta.
 
-| Dato                                                | Valor                                                |
-| :-------------------------------------------------- | :--------------------------------------------------- |
-| Crédito mensual de Places API                       | 200 USD                                              |
-| Costo por llamada, referencia del enunciado         | 0.017 USD                                            |
-| SKU aplicable al proyecto                           | Enterprise, por requerir teléfono y sitio web        |
-| Precio real del SKU Enterprise                      | **Por verificar en la consola de pricing, Semana 1** |
-| Llamadas equivalentes al crédito, con la referencia | Alrededor de 11,700 al mes                           |
-| Llamadas facturables por sincronización             | 2, por el tope de 20 resultados en páginas de 10     |
-| Costo por sincronización, con la referencia         | 0.034 USD                                            |
-| Límite duro por sincronización                      | 1 USD                                                |
+**Las cifras del enunciado están desactualizadas y el proyecto no se rige por ellas.** El crédito recurrente de 200 USD mensuales de Google Maps Platform dejó de existir el 1 de marzo de 2025: lo sustituyó un umbral gratuito mensual por SKU, que no se acumula entre servicios. Y la referencia de 0.017 USD por llamada corresponde a un SKU inferior al que aplica aquí. Los valores verificados en la consola de pricing son estos.
 
-El costo por llamada depende del field mask solicitado y no es un valor único. El detalle de SKUs está en la estrategia de keywords. Ninguna corrida completa se ejecuta antes de confirmar el precio real.
+| Dato                                              | Valor verificado                                              |
+| :------------------------------------------------ | :------------------------------------------------------------ |
+| SKU aplicable al proyecto                         | Text Search **Enterprise**, por requerir teléfono y sitio web |
+| Precio del SKU                                    | 35.00 USD por cada 1,000 llamadas                             |
+| Costo por llamada facturable                      | 0.035 USD                                                     |
+| Llamadas gratuitas al mes en ese SKU              | 1,000                                                         |
+| Llamadas facturables por sincronización           | 2, por el tope de 20 resultados en páginas de 10              |
+| Costo por sincronización facturable               | 0.07 USD                                                      |
+| Sincronizaciones cubiertas por el umbral gratuito | 500 al mes                                                    |
+| Límite duro por sincronización                    | 1 USD                                                         |
+
+Frente a la referencia del enunciado, el costo real es aproximadamente el doble. Aun así el proyecto no gasta: el umbral gratuito de 1,000 llamadas mensuales cubre 500 sincronizaciones, muy por encima del uso de pruebas, y el crédito de la prueba gratuita de Google Cloud absorbe cualquier exceso.
+
+El costo por llamada depende del field mask solicitado y no es un valor único. El detalle de SKUs está en la estrategia de keywords.
 
 Controles obligatorios, previos a escribir código:
 
-| Control                                   | Configuración                             | Responsable              |
-| :---------------------------------------- | :---------------------------------------- | :----------------------- |
-| Alerta de billing al 50% del presupuesto  | Consola de GCP, Billing, Budgets & alerts | Cada integrante          |
-| Alerta de billing al 90% del presupuesto  | Consola de GCP, Billing, Budgets & alerts | Cada integrante          |
-| Cuota máxima de llamadas por día          | Consola de APIs, Places API, Quotas       | Cada integrante          |
-| Emulador local para el 90% del desarrollo | Firebase Emulator Suite                   | P3 configura, todos usan |
+| Control                                   | Configuración                                         | Responsable              |
+| :---------------------------------------- | :---------------------------------------------------- | :----------------------- |
+| Alertas de billing al 50% y 90%           | Consola de GCP, Facturación, Presupuestos y alertas   | Cada integrante          |
+| Cuota máxima de llamadas por día          | Maps Platform, Cuotas, `SearchTextRequest per day`    | Cada integrante          |
+| Cuota máxima de llamadas por minuto       | Maps Platform, Cuotas, `SearchTextRequest per minute` | Cada integrante          |
+| Emulador local para el 90% del desarrollo | Firebase Emulator Suite                               | P3 configura, todos usan |
 
-El valor exacto de la cuota diaria queda por confirmar con el equipo. Como punto de partida se propone un límite conservador que cubra el uso previsto de pruebas sin acercarse al crédito mensual.
+Los valores acordados son **200 solicitudes por día** y **60 por minuto**. Las doscientas diarias equivalen a cien sincronizaciones, holgado para pruebas y lejos de cualquier accidente costoso; la de por minuto cubre un escenario distinto, el de un bucle que dispara cientos de llamadas en segundos, donde un tope diario llegaría tarde.
+
+Dos precisiones sobre el alcance de cada control. El presupuesto **solo avisa**: quien impide el gasto es la cuota. Y la alerta debe configurarse sin descontar los créditos promocionales, porque midiendo el costo neto no notificaría nada mientras el crédito de la prueba gratuita siga cubriendo el consumo.
+
+Existe además un gasto que ninguno de esos controles cubre, porque no proviene de Places API sino del propio despliegue: **cada despliegue de la función genera una imagen de contenedor** que queda almacenada en Artifact Registry. Sin política de limpieza se acumulan indefinidamente, y como la capa gratuita es de 0.5 GB, unos pocos despliegues bastan para superarla y empezar a facturar almacenamiento cada mes. El primer `firebase deploy` ofrece configurarla; la respuesta del proyecto es **conservar las imágenes un día**. Guardar versiones antiguas no aporta nada, porque revertir un despliegue se hace redesplegando desde el código y no recuperando una imagen.
+
+El recorrido de consola completo, con las pantallas y los nombres exactos de cada opción, está en [credentials-setup.md](credentials-setup.md).
 
 ### Evidencia de configuración
 
 Entregable de la Semana 1. Las capturas se guardan en `docs/images/` y se enlazan aquí.
 
-| Evidencia                        | Archivo                          | Estado    |
-| :------------------------------- | :------------------------------- | :-------- |
-| Alerta de billing al 50%         | `images/billing-alert-50.png`    | Pendiente |
-| Alerta de billing al 90%         | `images/billing-alert-90.png`    | Pendiente |
-| Cuota diaria de Places API       | `images/places-api-quota.png`    | Pendiente |
-| Restricción de la API key por IP | `images/api-key-restriction.png` | Pendiente |
-| Función `hello world` desplegada | `images/hello-world-deploy.png`  | Pendiente |
+| Evidencia                                  | Captura                                                   | Qué se comprueba en ella                                              |
+| :----------------------------------------- | :-------------------------------------------------------- | :-------------------------------------------------------------------- |
+| Presupuesto con alertas al 50%, 90% y 100% | [billing-budget.png](images/billing-budget.png)           | Alcance limitado al proyecto, tres umbrales y `No se usaron créditos` |
+| Crédito de la prueba gratuita              | [billing-credits.png](images/billing-credits.png)         | Saldo disponible y fecha de vencimiento                               |
+| Cuotas de Places API                       | [places-api-quota.png](images/places-api-quota.png)       | `SearchTextRequest` en 200 por día y 60 por minuto                    |
+| Restricción de la API key                  | [api-key-restriction.png](images/api-key-restriction.png) | Las dos IPs autorizadas y la restricción a Places API (New)           |
+| Whitelist dejando pasar una IP autorizada  | [ip-whitelist-200.png](images/ip-whitelist-200.png)       | La whitelist carga sus entradas y la petición responde `200`          |
+| Whitelist rechazando una IP no autorizada  | [ip-whitelist-403.png](images/ip-whitelist-403.png)       | `403` con `ip_not_allowed` y la IP rechazada registrada en el log     |
+| Función `hello world` desplegada           | [hello-world-deploy.png](images/hello-world-deploy.png)   | `Deploy complete!`, la URL de la función y su respuesta `200`         |
 
-<!-- Al agregar cada captura, sustituir el estado por el enlace: ![Alerta de billing al 50%](images/billing-alert-50.png) -->
+Las alertas del 50% y del 90% no son dos presupuestos sino dos umbrales de uno solo, de modo que una única captura de la lista de presupuestos las acredita a ambas: muestra a la vez el nombre, el proyecto al que se aplica, los tres umbrales y el consumo acumulado.
+
+La whitelist es entregable de la Semana 1 por sí misma, así que necesita evidencia propia: que el código exista no se ve en una entrega. Son dos imágenes y no una porque el valor está en el contraste entre ambos estados, y combinarlas obliga a reducir el texto hasta que los logs dejan de leerse.
+
+Cada una muestra el proceso del backend junto a la petición, de modo que se vean a la vez el número de entradas que cargó la whitelist al arrancar, el código de estado devuelto y, en el caso del rechazo, la línea donde el middleware registra la IP rechazada. El contraste entre las dos acredita que el corte depende de la lista y no de otra cosa.
+
+La forma reproducible de generarlas es levantar el backend dos veces, la segunda con la variable sobrescrita en la línea de comandos:
+
+```bash
+pnpm dev:backend                                # la IP local esta autorizada, responde 200
+IP_WHITELIST=203.0.113.10 pnpm dev:backend      # ninguna IP local coincide, responde 403
+```
+
+`203.0.113.0/24` es un rango reservado para documentación, así que no corresponde a ninguna red real. La variable en la línea de comandos tiene prioridad sobre el archivo `.env`, que se carga sin sobrescribir lo ya presente en el entorno.
+
+Ninguna captura debe mostrar el valor de una API key ni de una versión de secreto, ni siquiera parcialmente. Las pantallas de credenciales se recortan antes de esa columna.
+
+Cada captura se toma de la pantalla que muestra el resultado ya aplicado, no del formulario que lo configura: un formulario prueba que alguien escribió unos valores, no que quedaran guardados. Para el presupuesto, por ejemplo, la lista de presupuestos muestra en una sola vista el proyecto, los umbrales, el consumo acumulado y si se descontaron créditos, cosa que el formulario de creación no permite verificar.
 
 ## Estrategia de keywords
 
