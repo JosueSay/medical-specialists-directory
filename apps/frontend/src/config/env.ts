@@ -28,9 +28,19 @@ function readTheme(value: string | undefined): Theme {
   return value === 'light' || value === 'dark' || value === 'system' ? value : 'system';
 }
 
+/**
+ * Los valores de respaldo de este objeto son, a la vez, la configuracion del
+ * sitio desplegado: el build de produccion no lee ningun archivo de entorno
+ * (ver `vite.config.ts`), asi que cada opcion cae aqui. Cambiar uno cambia lo
+ * que se publica, no solo lo que ocurre cuando falta una variable.
+ */
 export const clientEnv = {
-  appEnv: readString(import.meta.env.VITE_APP_ENV, 'local'),
-  /** Base de la API. En desarrollo el proxy de Vite evita configurar CORS. */
+  appEnv: readString(import.meta.env.VITE_APP_ENV, import.meta.env.PROD ? 'production' : 'local'),
+  /**
+   * Base de la API. La ruta relativa sirve en los dos entornos: en desarrollo
+   * la resuelve el proxy de Vite y en despliegue el rewrite `/api/**` de
+   * `firebase.json`. Una URL absoluta quedaria literal en el bundle.
+   */
   apiBaseUrl: readString(import.meta.env.VITE_API_BASE_URL, API_BASE_PATH),
   defaultLocale: readLocale(import.meta.env.VITE_DEFAULT_LOCALE),
   defaultTheme: readTheme(import.meta.env.VITE_DEFAULT_THEME),

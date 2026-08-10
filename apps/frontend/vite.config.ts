@@ -10,8 +10,28 @@ import tailwindcss from '@tailwindcss/vite';
  * un solo archivo compartido con el backend y con Docker.
  */
 export default defineConfig(({ mode }) => {
-  // La raiz del monorepo, dos niveles arriba de apps/frontend
-  const envDir = fileURLToPath(new URL('../../', import.meta.url));
+  const isProduction = mode === 'production';
+
+  /**
+   * En desarrollo se lee el `.env` de la raiz del monorepo, compartido con el
+   * backend y con Docker. El build de produccion **no lo lee**: apunta a
+   * `apps/frontend`, donde no hay ningun archivo de entorno, de modo que el
+   * artefacto quede igual lo construya quien lo construya.
+   *
+   * No es una precaucion teorica. Con la raiz como origen, el build heredaba
+   * `NODE_ENV=development` y empaquetaba React en modo desarrollo: el bundle
+   * pasaba de 243 kB a 449 kB y StrictMode remontaba cada componente, de modo
+   * que la UI desplegada hacia dos peticiones por consulta. Antes de eso habia
+   * heredado tambien la URL absoluta de la API, y la pagina publicada llamaba
+   * al `localhost` de quien la abriera.
+   *
+   * Los valores de produccion no se declaran aqui ni en un archivo aparte:
+   * son los que `src/config/env.ts` ya usa como respaldo. Sin variables que
+   * leer, cada opcion cae en su valor por defecto, que es el correcto para el
+   * sitio desplegado. Para forzar otro valor puntualmente basta pasarlo por el
+   * entorno del proceso: `VITE_API_BASE_URL=... pnpm build`.
+   */
+  const envDir = fileURLToPath(new URL(isProduction ? './' : '../../', import.meta.url));
   const env = loadEnv(mode, envDir, '');
 
   /**
