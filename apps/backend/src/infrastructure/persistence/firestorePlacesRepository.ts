@@ -105,9 +105,15 @@ export class FirestorePlacesRepository implements PlacesRepository {
   async purgeExpired(expiredBefore: string): Promise<number> {
     // Solo el placeId puede conservarse indefinidamente: al superar la
     // retencion se borra el documento completo, incluidos los campos de Google.
+    //
+    // El campo es `collectedAt` y no `updatedAt`: la entidad no tiene ese
+    // segundo campo, y Firestore excluye de las consultas de rango todo
+    // documento que carezca del campo consultado. Filtrar por un campo
+    // inexistente no da error, devuelve cero resultados, de modo que la
+    // retencion dejaria de aplicarse sin que nada lo advirtiera.
     const snapshot = await this.db
       .collection(this.config.placesCollection)
-      .where('updatedAt', '<', expiredBefore)
+      .where('collectedAt', '<', expiredBefore)
       .limit(500)
       .get();
 

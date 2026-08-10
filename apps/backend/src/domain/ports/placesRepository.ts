@@ -29,7 +29,7 @@ export interface PlacesRepository {
   findLastImportRun(specialty: Specialty, zone: string): Promise<ImportRun | null>;
 
   /**
-   * Borra los registros cuyo `updatedAt` es anterior a la fecha dada.
+   * Borra los registros cuyo `collectedAt` es anterior a la fecha dada.
    * Aplica la politica de retencion: pasado ese plazo no se conservan los
    * campos que provienen de Places API.
    */
