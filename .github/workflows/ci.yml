@@ -23,6 +23,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # El emulador de Firestore corre sobre la JVM y firebase-tools exige
+      # Java 21 o superior. La imagen de ubuntu-latest trae una version anterior
+      # por defecto, de modo que hay que fijarla de forma explicita.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
