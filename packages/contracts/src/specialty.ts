@@ -60,34 +60,44 @@ export type Zone = (typeof SUPPORTED_ZONES)[number];
 /**
  * Variantes de busqueda por especialidad.
  *
- * Places API indexa establecimientos, no personas, y no modela la especialidad
- * medica como atributo. Por eso las variantes usan formas que pueden ser nombre
- * de un local:
+ * Places API no modela la especialidad medica como atributo, asi que la unica
+ * via es el texto. Las formas que se usan:
  *
  *   - sustantivo de disciplina      `cardiologia`
+ *   - sustantivo agentivo           `cardiologo`
  *   - adjetivo relacional           `clinica cardiologica`
  *   - campo semantico               `centro cardiovascular`
  *
- * Se descarta el sustantivo agentivo (`cardiologo`, `pediatra`), que designa al
- * profesional y no al establecimiento. Es la forma que sugiere el enunciado del
- * curso; la desviacion esta justificada en docs/design.md y se verifica de forma
- * empirica antes de la corrida completa.
+ * El agentivo estuvo descartado con el argumento de que designa al profesional
+ * y no al establecimiento. La verificacion empirica lo refuto: aporta un 15% de
+ * registros exclusivos, y son consultorios registrados con el nombre del medico,
+ * que es justo lo que pide un directorio de especialistas. El detalle esta en
+ * docs/design.md, seccion de verificaciones previas.
  *
- * No todas las especialidades completan las tres formas: forzar un termino que
+ * Todas las variantes van sin tilde. El eje ortografico se comprobo y se
+ * descarto: con y sin diacriticos los resultados coinciden en un 95%, y la
+ * diferencia se comporta como ruido de ordenamiento.
+ *
+ * No todas las especialidades completan las cuatro formas: forzar un termino que
  * arrastra otro rubro (`piel` trae centros de estetica, `optica` trae comercios
  * de lentes) reduce la calidad de los datos en lugar de mejorarla.
+ *
+ * PENDIENTE (P1): el agentivo esta comprobado solo para cardiologia. Los otros
+ * nueve se agregan por analogia gramatical y deben verificarse con
+ * `apps/backend/scripts/compareKeywords.mjs` antes de la corrida completa. Cada
+ * variante que no aporte cuesta 22 sincronizaciones inutiles.
  */
 export const SPECIALTY_KEYWORD_VARIANTS: Record<Specialty, readonly string[]> = {
-  oncology: ['oncologia', 'clinica oncologica'],
-  cardiology: ['cardiologia', 'clinica cardiologica', 'centro cardiovascular'],
-  pediatrics: ['pediatria', 'clinica pediatrica', 'centro infantil medico'],
-  dermatology: ['dermatologia', 'clinica dermatologica'],
-  gynecology: ['ginecologia', 'clinica ginecologica', 'centro gineco-obstetrico'],
-  neurology: ['neurologia', 'clinica neurologica', 'centro de neurociencias'],
-  ophthalmology: ['oftalmologia', 'clinica oftalmologica'],
-  orthopedics: ['ortopedia', 'clinica ortopedica', 'centro de traumatologia'],
-  psychiatry: ['psiquiatria', 'clinica psiquiatrica', 'centro de salud mental'],
-  generalMedicine: ['medicina general', 'clinica de medicina general'],
+  oncology: ['oncologia', 'oncologo', 'clinica oncologica'],
+  cardiology: ['cardiologia', 'cardiologo', 'clinica cardiologica', 'centro cardiovascular'],
+  pediatrics: ['pediatria', 'pediatra', 'clinica pediatrica', 'centro infantil medico'],
+  dermatology: ['dermatologia', 'dermatologo', 'clinica dermatologica'],
+  gynecology: ['ginecologia', 'ginecologo', 'clinica ginecologica', 'centro gineco-obstetrico'],
+  neurology: ['neurologia', 'neurologo', 'clinica neurologica', 'centro de neurociencias'],
+  ophthalmology: ['oftalmologia', 'oftalmologo', 'clinica oftalmologica'],
+  orthopedics: ['ortopedia', 'ortopedista', 'clinica ortopedica', 'centro de traumatologia'],
+  psychiatry: ['psiquiatria', 'psiquiatra', 'clinica psiquiatrica', 'centro de salud mental'],
+  generalMedicine: ['medicina general', 'medico general', 'clinica de medicina general'],
 };
 
 export function isSupportedSpecialty(value: string): value is Specialty {
