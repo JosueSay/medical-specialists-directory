@@ -76,6 +76,22 @@ Entregables:
 
 Coordinación: entrega a P2 la forma exacta de los documentos en Firestore y a P4 el criterio con que se eligieron las keywords.
 
+### Traspaso pendiente a P1
+
+P3 dejó estos puntos resueltos o preparados durante la Semana 2. Requieren decisión o continuación de P1.
+
+| Punto                                                                                                                                                                                                                                                              | Estado                                                                                     |
+| :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------- |
+| Las verificaciones de P1-03 se ejecutaron y **el agentivo se recuperó**: aporta un 15% de registros exclusivos y son consultorios registrados con el nombre del médico. El eje de diacríticos se eliminó. Detalle en [design.md](design.md#verificaciones-previas) | Hecho                                                                                      |
+| `SPECIALTY_KEYWORD_VARIANTS` ya incluye el agentivo en las diez especialidades                                                                                                                                                                                     | **Solo cardiología está comprobada**; las otras nueve se agregaron por analogía gramatical |
+| El experimento es reproducible con `apps/backend/scripts/compareKeywords.mjs`, que acepta `--page-size` y no llama a Google sin `--run`                                                                                                                            | Disponible                                                                                 |
+| P1-11, índices de Firestore: los cuatro de `places` estaban declarados, faltaba el de `importRuns` que exige el cooldown. Agregado y desplegado                                                                                                                    | Hecho                                                                                      |
+| P1-12, cobertura por campo: primera medición sobre cardiología zona 10 da 100% de teléfono y **47% de sitio web**                                                                                                                                                  | Falta repetirla por especialidad y zona                                                    |
+
+Lo que decide P1: **si las nueve variantes agentivas restantes se conservan**. Cada una que no aporte cuesta 22 sincronizaciones inútiles, unos 1.54 USD, frente a los 0.07 USD que cuesta medirla. El criterio ya no es lingüístico sino empírico: una variante entra si aporta registros exclusivos.
+
+Conviene además saber que la coincidencia de Google **no es léxica sino semántica**. `Dr. Fernando Muralles - Cardiología Pediátrica` responde a `cardiologo` y no a `cardiologia`, pese a lo que dice su nombre. Razonar sobre qué palabra figura en el rótulo no predice qué devuelve la API, y ese fue justamente el error del criterio anterior.
+
 ## P2. Backend, API de consulta
 
 Responsable del endpoint que consume el Ministerio. Lee únicamente de la base propia; nunca llama a Google.
@@ -102,6 +118,18 @@ Entregables:
 | P2-11 | Devolver siempre `code` y `message` con audiencias separadas       | El `message` nunca se muestra al usuario; ningún texto de cara al usuario se arma en el backend      |
 
 Coordinación: congela el contrato con P4 en la semana 1 para que la UI avance en paralelo, y confirma con P1 los índices necesarios.
+
+### Traspaso pendiente a P2
+
+Tres cambios sobre la capa de consulta salieron de ejecutar el sistema contra Firestore real. Los tres están aplicados; el segundo y el tercero conviene que P2 los conozca porque afectan a decisiones suyas.
+
+**El filtro `q` de texto libre se retiró del contrato.** No lo pedía el enunciado y contradecía el catálogo cerrado que el propio diseño declara. Además no podía implementarse igual en los dos adaptadores: el de memoria resolvía subcadena y el de Firestore prefijo, y el rango de este último estaba mal formado (`>= prefijo AND < prefijo` es vacío), de modo que nunca devolvía resultados. Dos implementaciones del mismo puerto con conjuntos distintos rompen la propiedad que justifica la arquitectura. El razonamiento completo está en [design.md](design.md#por-qué-no-hay-búsqueda-por-texto).
+
+**La purga de `FreshnessPolicy` no funcionaba en producción.** El adaptador de Firestore filtraba por `updatedAt`, campo que la entidad no tiene, y Firestore excluye de las consultas de rango los documentos que carecen del campo consultado: devolvía cero sin error. El adaptador en memoria sí filtraba por `collectedAt`, así que en desarrollo funcionaba. Corregido, y con prueba de regresión.
+
+**El adaptador de Firestore ya tiene pruebas de integración** contra el emulador, en `apps/backend/tests/integration/`. Cubren los cuatro métodos del puerto, incluida la paginación y el orden que P2-02 y P2-04 definen. Se ejecutan con `pnpm run --filter @msd/backend test:integration` y en CI.
+
+Lo que decide P2: **si el filtro de texto vuelve**. Si el equipo lo quisiera, la vía honesta es declararlo como búsqueda por prefijo en el contrato, alinear ambos adaptadores y asumir la limitación de forma explícita — con nombres médicos, el término distintivo casi nunca va primero, así que un prefijo encontraría poco.
 
 ## P3. Seguridad e infraestructura
 
@@ -240,13 +268,15 @@ Una tarea se considera terminada cuando cumple todo lo siguiente:
 
 ## Pendientes de definición
 
-| Pendiente                                                                                   | Responsable de proponer | Fecha límite                                  |
-| :------------------------------------------------------------------------------------------ | :---------------------- | :-------------------------------------------- |
-| **Precio real del SKU Enterprise de Text Search** en la consola de pricing                  | P3                      | Semana 1, antes de cualquier corrida completa |
-| Valor de la cuota diaria de Places API                                                      | P3                      | Semana 1                                      |
-| Vía de edición de la whitelist: consola de Firebase o endpoint con llave                    | P3                      | Semana 1, junto con el middleware             |
-| Prueba de forma agentiva contra disciplina: `cardiólogo` frente a `cardiología`, 2 llamadas | P1                      | Semana 1                                      |
-| Prueba de diacríticos: `cardiología` frente a `cardiologia`, 2 llamadas                     | P1                      | Semana 1                                      |
-| Tabla de variantes por especialidad, validada contra nombres comerciales reales             | P1 y P4                 | Semana 2, antes de la corrida completa        |
-| Valores de `PLACE_TTL`, `PLACE_RETENTION` y `SYNC_COOLDOWN` para demo                       | P2 y P3                 | Semana 3                                      |
-| Adopción o descarte de Cloud Armor                                                          | P3                      | Semana 3                                      |
+| Pendiente                                                                                                                    | Responsable de proponer | Fecha límite                           |
+| :--------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :------------------------------------- |
+| ~~Precio real del SKU Enterprise de Text Search~~ **Resuelto**: 35.00 USD por 1,000 llamadas, con 1,000 gratuitas al mes     | P3                      | Semana 1                               |
+| ~~Valor de la cuota diaria de Places API~~ **Resuelto**: 200 por día y 60 por minuto sobre `SearchTextRequest`               | P3                      | Semana 1                               |
+| ~~Vía de edición de la whitelist~~ **Resuelto**: documento de Firestore editable desde la consola, sin endpoint              | P3                      | Semana 1                               |
+| ~~Prueba de forma agentiva contra disciplina~~ **Resuelta**: el agentivo aporta un 15% de registros exclusivos y se recupera | P1                      | Semana 2                               |
+| ~~Prueba de diacríticos~~ **Resuelta**: 95% de coincidencia, el eje ortográfico se elimina                                   | P1                      | Semana 2                               |
+| Verificar el agentivo en las nueve especialidades restantes                                                                  | P1                      | Semana 2, antes de la corrida completa |
+| Tabla de variantes por especialidad, validada contra nombres comerciales reales                                              | P1 y P4                 | Semana 2, antes de la corrida completa |
+| Corregir la búsqueda por prefijo si el equipo decidiera recuperar el filtro de texto                                         | P2                      | Solo si se revierte la decisión        |
+| Valores de `PLACE_TTL`, `PLACE_RETENTION` y `SYNC_COOLDOWN` para demo                                                        | P2 y P3                 | Semana 3                               |
+| Adopción o descarte de Cloud Armor                                                                                           | P3                      | Semana 3                               |

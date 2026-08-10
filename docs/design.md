@@ -915,23 +915,25 @@ El ruido se ataca con `includedType` y `strictTypeFiltering`, no con la keyword.
 
 Todas las variantes derivan de una misma raíz, pero **no todas las formas derivadas nombran lo mismo**, y esa diferencia decide cuáles sirven. Places API indexa establecimientos, no personas: una forma que designa a un profesional le pide a un catálogo de negocios algo que no contiene.
 
-| Forma            | Nombre lingüístico                     | Qué designa                                                                   | Uso                                                                             |
-| :--------------- | :------------------------------------- | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
-| `cardiólogo`     | Sustantivo agentivo                    | A la persona que ejerce la especialidad                                       | **Descartada** por defecto, salvo que la prueba empírica demuestre lo contrario |
-| `cardiología`    | Sustantivo de disciplina               | Al campo del saber, usado como nombre de servicio                             | Variante principal                                                              |
-| `cardiológica`   | Adjetivo relacional                    | Califica al establecimiento                                                   | Variante principal, combinada con el tipo de establecimiento                    |
-| `cardiovascular` | Adjetivo relacional de campo semántico | Califica al establecimiento con un término del mismo dominio, **no sinónimo** | Variante secundaria, cuando el término existe para esa especialidad             |
+| Forma            | Nombre lingüístico                     | Qué designa                                                                   | Uso                                                                 |
+| :--------------- | :------------------------------------- | :---------------------------------------------------------------------------- | :------------------------------------------------------------------ |
+| `cardiólogo`     | Sustantivo agentivo                    | A la persona que ejerce la especialidad, y al consultorio que lleva su nombre | **Variante principal**, recuperada tras la verificación empírica    |
+| `cardiología`    | Sustantivo de disciplina               | Al campo del saber, usado como nombre de servicio                             | Variante principal                                                  |
+| `cardiológica`   | Adjetivo relacional                    | Califica al establecimiento                                                   | Variante principal, combinada con el tipo de establecimiento        |
+| `cardiovascular` | Adjetivo relacional de campo semántico | Califica al establecimiento con un término del mismo dominio, **no sinónimo** | Variante secundaria, cuando el término existe para esa especialidad |
 
 Dos ejes adicionales, independientes de la forma de la palabra:
 
-| Eje                     | Qué es                                         | Ejemplo                              | Tratamiento                                       |
-| :---------------------- | :--------------------------------------------- | :----------------------------------- | :------------------------------------------------ |
-| Tipo de establecimiento | Modificador del negocio, no del término médico | `clínica`, `centro`, `consultorio`   | Se antepone al término médico                     |
-| Variante ortográfica    | Diacríticos, con tilde y sin tilde             | `cardiologia` frente a `cardiología` | **Pendiente de verificación empírica**, ver abajo |
+| Eje                     | Qué es                                         | Ejemplo                              | Tratamiento                                            |
+| :---------------------- | :--------------------------------------------- | :----------------------------------- | :----------------------------------------------------- |
+| Tipo de establecimiento | Modificador del negocio, no del término médico | `clínica`, `centro`, `consultorio`   | Se antepone al término médico                          |
+| Variante ortográfica    | Diacríticos, con tilde y sin tilde             | `cardiologia` frente a `cardiología` | **Eliminado** tras la verificación empírica: sin tilde |
 
-Criterio que gobierna la selección: **una variante se incluye solo si puede funcionar como nombre de un establecimiento real**. No basta con que sea una derivación gramaticalmente válida. Un sustantivo agentivo es correcto en español y describe con precisión al profesional, pero no es como se llama un local, y gastar llamadas facturables en él reduce cobertura sin aportar registros.
+Criterio que gobierna la selección: **una variante se incluye solo si aporta registros que las demás no encuentran**, comprobado con datos y no supuesto a partir de la forma de la palabra.
 
-El ejemplo que trae el enunciado, `cardiólogo zona 10 Guatemala`, usa precisamente la forma agentiva. El equipo se aparta de ese ejemplo por la razón anterior, y la decisión se respalda con la prueba descrita más abajo en lugar de sostenerse solo en el argumento.
+Ese criterio sustituye a uno anterior, que exigía que la variante «pudiera funcionar como nombre de un establecimiento real». Sonaba razonable y resultó ser mal predictor: la verificación empírica mostró que Google no empareja por coincidencia léxica, de modo que razonar sobre qué palabra figura en el nombre de un local no anticipa qué devuelve la API. Un consultorio llamado `Dr. Fernando Muralles - Cardiología Pediátrica` responde a `cardiologo` y no a `cardiologia`.
+
+El ejemplo que trae el enunciado, `cardiólogo zona 10 Guatemala`, usa la forma agentiva. El equipo llegó a descartarla por el criterio anterior y la recuperó al comprobarlo: el detalle está en [Verificaciones previas](#verificaciones-previas).
 
 ### Plantilla de keyword
 
@@ -986,16 +988,48 @@ Cada término de campo semántico se evalúa individualmente. Un término que ar
 
 ### Verificaciones previas
 
-Dos decisiones de la estrategia se apoyan en argumentos razonables pero no comprobados. Antes de la corrida completa se resuelven con pruebas de dos llamadas cada una, comparando los `placeId` devueltos.
+Dos decisiones de la estrategia se apoyaban en argumentos razonables pero no comprobados, y se resolvieron comparando los `placeId` que devuelven consultas que solo difieren en la forma de la palabra. Todo lo demás —zona, tipo, idioma, región— se mantiene igual que en el adaptador real; si variara más de una cosa a la vez la comparación no diría nada.
 
-| Prueba                           | Consultas a comparar                                                     | Qué decide                                                                                                                                               |
-| :------------------------------- | :----------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Forma agentiva contra disciplina | `cardiólogo zona 10 Guatemala` frente a `cardiología zona 10 Guatemala`  | Si el agentivo aporta registros que la disciplina no encuentra, se conserva como variante; si aporta menos o los mismos, se descarta de forma definitiva |
-| Diacríticos                      | `cardiología zona 10 Guatemala` frente a `cardiologia zona 10 Guatemala` | Si los resultados coinciden, el eje ortográfico se elimina y las variantes se reservan para ejes que sí aportan cobertura                                |
+El experimento es reproducible con `apps/backend/scripts/compareKeywords.mjs`, que sin `--run` hace una pasada en seco y no llama a Google.
 
-Costo conjunto: 0.068 USD con la tarifa de referencia. Cada prueba registra el número de resultados, cuántos `placeId` son exclusivos de cada consulta y cuántos coinciden.
+Se ejecutó dos veces, con páginas de 10 y de 20 resultados. **El tamaño de página resultó decisivo para interpretar los datos**: con 10, un registro que ronda ese puesto entra en una consulta y sale en otra, de modo que la comparación no distingue si cambió la cobertura o solo el orden. Comparar ambas corridas separa una cosa de la otra.
 
-El valor de estas pruebas no es solo técnico. Dejan por escrito que la estrategia de keywords se decidió con evidencia y no por intuición, incluso cuando la evidencia contradice el ejemplo del enunciado.
+#### Forma agentiva contra disciplina
+
+| Página | `cardiologo` exclusivos | `cardiologia` exclusivos | Coincidentes |
+| :----- | ----------------------: | -----------------------: | -----------: |
+| 10     |                       3 |                        3 |            7 |
+| 20     |                       3 |                        3 |           17 |
+
+**El agentivo se conserva.** Los exclusivos se mantuvieron en tres al duplicar la página: si fueran ruido de ordenamiento habrían disminuido, como ocurrió con los diacríticos. Es cobertura que la forma de disciplina no alcanza.
+
+Lo que aporta es además lo que el directorio busca. Los tres exclusivos de la corrida de 20 fueron `Dr. Salvador Aguilar | Cardiólogo en Guatemala`, `Dr. Fernando Muralles - Cardiología Pediátrica` y `Dr. Marco Rodas Díaz - Cardiólogo`: **médicos individuales registrados con su propio nombre**, que es precisamente lo que pide un directorio de especialistas.
+
+La premisa que sostenía el descarte era que «Places API indexa establecimientos, no personas». Es cierta en su literalidad y engañosa en su consecuencia: el consultorio de un médico **es** un establecimiento, y su nombre comercial suele contener la forma agentiva porque lleva el nombre del doctor. Descartar el agentivo excluía de forma sistemática a los profesionales individuales.
+
+Dos observaciones que el conteo por sí solo no muestra:
+
+- `Dr. Fernando Muralles - Cardiología Pediátrica` aparece **solo** en la consulta con `cardiologo`, pese a que su nombre contiene «Cardiología». La coincidencia de Google no es léxica sino semántica, así que razonar sobre qué palabra figura en el nombre no predice qué devuelve la API.
+- En sentido contrario, `cardiologia` trajo `Centro de Geriatría de Guatemala`, que no es cardiología. Ninguna variante es estrictamente mejor: cada una acierta y falla de manera distinta, lo que refuerza usar ambas.
+
+El ejemplo del enunciado, `cardiólogo zona 10 Guatemala`, era correcto. La desviación que el equipo había asumido queda revertida.
+
+#### Diacríticos
+
+| Página | `cardiologia` exclusivos | `cardiología` exclusivos | Coincidencia |
+| :----- | -----------------------: | -----------------------: | -----------: |
+| 10     |                        2 |                        2 |          80% |
+| 20     |                        1 |                        1 |          95% |
+
+**El eje ortográfico se elimina.** La diferencia se encogió al ampliar la ventana, que es la firma del ruido de frontera: los registros no estaban ausentes de una consulta, estaban justo debajo del corte de la otra.
+
+La coincidencia del 95% no es del 100%, y sería deshonesto presentarla como tal. Pero duplicar el costo de la corrida completa para perseguir una diferencia del 5% que además se comporta como ruido no se justifica. Se conserva una sola grafía, sin tilde, que es la que ya usa el catálogo.
+
+#### Qué deja este experimento
+
+El valor no es solo técnico. La estrategia de keywords se diseñó con un argumento razonable, se puso a prueba y **la prueba refutó una de sus dos decisiones**. La documentación se comprometió a registrar la evidencia aunque contradijera el ejemplo del enunciado; acabó contradiciendo al equipo, y el enunciado tenía razón.
+
+Queda también una advertencia metodológica: con página de 10, la primera corrida sugería que los diacríticos sí cambiaban la cobertura. Una sola medición habría llevado a conservar un eje que duplica el costo sin aportar registros.
 
 ### Presupuesto de la estrategia
 
@@ -1021,12 +1055,17 @@ Se excluye `places.rating` de forma deliberada: dispara Enterprise igual que los
 
 Alternativa evaluada y descartada: solicitar solo campos Pro en Text Search y completar teléfono y sitio web con llamadas a Place Details. Serían 2 llamadas Pro más hasta 20 llamadas de Details por sincronización, frente a 2 llamadas Enterprise. La opción de una sola pasada es más barata en cualquier escenario.
 
-| Escenario                     | Sincronizaciones | Llamadas | Costo con referencia de 0.017 USD |
-| :---------------------------- | :--------------- | :------- | :-------------------------------- |
-| Una sincronización individual | 1                | 2        | 0.034 USD                         |
-| Corrida completa, 2 variantes | 440              | 880      | 14.96 USD                         |
-| Corrida completa, 3 variantes | 660              | 1,320    | 22.44 USD                         |
-| Corrida completa, 5 variantes | 1,100            | 2,200    | 37.40 USD                         |
+El catálogo no tiene el mismo número de variantes en todas las especialidades, así que la cuenta se hace sobre el total real y no sobre un promedio. Cada variante se cruza con las 22 zonas, y cada sincronización son 2 llamadas al SKU Enterprise a 0.035 USD, descontando las 1,000 gratuitas del mes:
+
+| Escenario                      | Variantes | Sincronizaciones |  Llamadas | Facturables | Costo         |
+| :----------------------------- | --------: | ---------------: | --------: | ----------: | :------------ |
+| Una sincronización individual  |         1 |                1 |         2 |           0 | 0.00 USD      |
+| Catálogo antes del experimento |        26 |              572 |     1,144 |         144 | 5.04 USD      |
+| **Catálogo con el agentivo**   |    **36** |          **792** | **1,584** |     **584** | **20.44 USD** |
+
+Recuperar la forma agentiva cuesta **15.40 USD adicionales**: diez variantes nuevas, una por especialidad. Cabe holgadamente en el crédito de la prueba gratuita, pero deja de ser cero, y esa es la contrapartida de la cobertura que aporta.
+
+Dos consecuencias operativas. La corrida completa conviene ejecutarla dentro de un mismo mes, porque el umbral gratuito se renueva mensualmente y repartirla sin motivo desaprovecha 1,000 llamadas libres. Y como el agentivo solo está comprobado en cardiología, verificar los otros nueve antes de la corrida puede ahorrar más de lo que cuesta comprobarlo: una variante que no aporte son 22 sincronizaciones inútiles, 1.54 USD, frente a los 0.07 USD que cuesta medirla.
 
 Dos límites distintos, que no deben confundirse:
 
@@ -1035,7 +1074,7 @@ Dos límites distintos, que no deben confundirse:
 
 ### Ejecución
 
-Las 660 combinaciones de especialidad, variante y zona no se disparan a mano. El operador ejecuta un script que recorre el catálogo e invoca `POST /api/v1/place-imports` por cada combinación. Sigue siendo una acción deliberada y no un proceso programado, y como el cooldown opera por keyword y zona, un recorrido de combinaciones distintas no lo activa.
+Las 880 combinaciones de especialidad, variante y zona no se disparan a mano. El operador ejecuta un script que recorre el catálogo e invoca `POST /api/v1/place-imports` por cada combinación. Sigue siendo una acción deliberada y no un proceso programado, y como el cooldown opera por keyword y zona, un recorrido de combinaciones distintas no lo activa.
 
 ### Cobertura que queda fuera
 
