@@ -1,10 +1,11 @@
 import type { Firestore, Query } from 'firebase-admin/firestore';
-import type { Specialty } from '@msd/contracts';
+import type { Specialty, SpecialtyConflictDto } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 import type {
   PagedResult,
   PlaceFilters,
   PlacesRepository,
+  UpsertResult,
 } from '@/domain/ports/placesRepository.js';
 
 export interface FirestoreRepositoryConfig {
@@ -19,21 +20,45 @@ export class FirestorePlacesRepository implements PlacesRepository {
     private readonly config: FirestoreRepositoryConfig,
   ) {}
 
-  async upsertMany(places: Place[]): Promise<number> {
+  async upsertMany(places: Place[]): Promise<UpsertResult> {
     if (places.length === 0) {
-      return 0;
+      return { upserted: 0, specialtyConflicts: [] };
     }
 
     const collection = this.db.collection(this.config.placesCollection);
-    const batch = this.db.batch();
+    const refs = places.map((place) => collection.doc(place.placeId));
 
-    for (const place of places) {
+    // Se lee el estado previo antes de escribir: es la unica forma de detectar
+    // que un placeId ya existia bajo otra especialidad, porque el merge de mas
+    // abajo pisa el campo sin dejar rastro de lo que tenia antes. El mismo
+    // negocio real puede coincidir con la busqueda de mas de una especialidad
+    // (un centro medico que aparece tanto en "oncologia" como en "medicina
+    // general"), y placeId como clave del documento significa que la
+    // sincronizacion mas reciente le gana la etiqueta a la anterior.
+    const existingDocs = await this.db.getAll(...refs);
+    const specialtyConflicts: SpecialtyConflictDto[] = [];
+
+    existingDocs.forEach((doc, index) => {
+      const existing = doc.data() as Place | undefined;
+      const incoming = places[index];
+      if (existing && incoming && existing.specialty !== incoming.specialty) {
+        specialtyConflicts.push({
+          placeId: incoming.placeId,
+          name: incoming.name,
+          previousSpecialty: existing.specialty,
+          newSpecialty: incoming.specialty,
+        });
+      }
+    });
+
+    const batch = this.db.batch();
+    places.forEach((place, index) => {
       // merge conserva createdAt del documento existente y hace la escritura idempotente
-      batch.set(collection.doc(place.placeId), place, { merge: true });
-    }
+      batch.set(refs[index]!, place, { merge: true });
+    });
 
     await batch.commit();
-    return places.length;
+    return { upserted: places.length, specialtyConflicts };
   }
 
   async findBy(filters: PlaceFilters, page: number, pageSize: number): Promise<PagedResult<Place>> {

@@ -1,4 +1,4 @@
-import type { PlaceDto, Specialty } from '@msd/contracts';
+import type { PlaceDto, Specialty, SpecialtyConflictDto } from '@msd/contracts';
 
 /**
  * Entidad de dominio. Es lo que el sistema entiende por "lugar medico",
@@ -37,6 +37,7 @@ export interface ImportRun {
   pagesFetched: number;
   itemsFetched: number;
   itemsUpserted: number;
+  specialtyConflicts: SpecialtyConflictDto[];
   startedAt: string;
   finishedAt: string;
 }

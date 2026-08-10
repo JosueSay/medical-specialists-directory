@@ -33,6 +33,22 @@ export interface PlaceDto {
   stale: boolean;
 }
 
+/**
+ * Un mismo negocio real coincidio con la busqueda de mas de una especialidad.
+ *
+ * `placeId` es la clave del documento (evita duplicados), pero eso tiene un
+ * costo: si el mismo lugar aparece en los resultados de otra especialidad, la
+ * escritura mas reciente le cambia la etiqueta a la anterior, no la conserva
+ * ademas. Este registro deja rastro de ese reemplazo en el momento en que
+ * ocurre, en lugar de que se descubra despues contando documentos.
+ */
+export interface SpecialtyConflictDto {
+  placeId: string;
+  name: string;
+  previousSpecialty: Specialty;
+  newSpecialty: Specialty;
+}
+
 /** Resumen que devuelve una sincronizacion contra Places API. */
 export interface PlaceImportSummaryDto {
   importId: string;
@@ -42,6 +58,8 @@ export interface PlaceImportSummaryDto {
   pagesFetched: number;
   itemsFetched: number;
   itemsUpserted: number;
+  /** Vacio cuando ningun lugar de esta corrida ya existia bajo otra especialidad. */
+  specialtyConflicts: SpecialtyConflictDto[];
   startedAt: string;
   finishedAt: string;
 }

@@ -1,4 +1,4 @@
-import type { Specialty } from '@msd/contracts';
+import type { Specialty, SpecialtyConflictDto } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 
 /**
@@ -18,13 +18,24 @@ export interface PagedResult<TItem> {
   totalItems: number;
 }
 
+export interface UpsertResult {
+  /** Cuantos documentos se escribieron. */
+  upserted: number;
+  /** Lugares que ya existian bajo otra especialidad antes de esta escritura. */
+  specialtyConflicts: SpecialtyConflictDto[];
+}
+
 /**
  * Puerto de persistencia. El dominio define que necesita; la infraestructura
  * decide como se cumple (memoria en desarrollo, Firestore en despliegue).
  */
 export interface PlacesRepository {
-  /** Escritura idempotente por `placeId`. Devuelve cuantos documentos se escribieron. */
-  upsertMany(places: Place[]): Promise<number>;
+  /**
+   * Escritura idempotente por `placeId`. Ademas de cuantos documentos se
+   * escribieron, informa que lugares ya existian bajo una especialidad
+   * distinta: la escritura les cambia la etiqueta, no la conserva ademas.
+   */
+  upsertMany(places: Place[]): Promise<UpsertResult>;
 
   findBy(filters: PlaceFilters, page: number, pageSize: number): Promise<PagedResult<Place>>;
 

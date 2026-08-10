@@ -3,6 +3,7 @@ import {
   isSupportedZone,
   type PlaceImportSummaryDto,
   type Specialty,
+  type SpecialtyConflictDto,
 } from '@msd/contracts';
 import type { ImportRun } from '@/domain/entities/place.js';
 import type { FreshnessPolicy } from '@/domain/freshnessPolicy.js';
@@ -105,6 +106,7 @@ export class ImportPlacesUseCase {
     let pagesFetched = 0;
     let itemsFetched = 0;
     let itemsUpserted = 0;
+    let specialtyConflicts: SpecialtyConflictDto[] = [];
 
     while (itemsFetched < this.maxResults) {
       const remaining = this.maxResults - itemsFetched;
@@ -125,7 +127,9 @@ export class ImportPlacesUseCase {
       itemsFetched += places.length;
 
       if (places.length > 0) {
-        itemsUpserted += await this.repository.upsertMany(places);
+        const result = await this.repository.upsertMany(places);
+        itemsUpserted += result.upserted;
+        specialtyConflicts = specialtyConflicts.concat(result.specialtyConflicts);
       }
 
       if (!page.nextPageToken || places.length === 0) {
@@ -143,6 +147,7 @@ export class ImportPlacesUseCase {
       pagesFetched,
       itemsFetched,
       itemsUpserted,
+      specialtyConflicts,
       startedAt,
       finishedAt: this.now().toISOString(),
     };
@@ -157,6 +162,18 @@ export class ImportPlacesUseCase {
       itemsFetched,
       itemsUpserted,
     });
+
+    if (specialtyConflicts.length > 0) {
+      // Se registra en detalle porque es la unica forma de saber, en el
+      // momento, que lugares perdieron su etiqueta anterior. Contar
+      // documentos despues no dice cuales cambiaron ni a que se debio.
+      logger.warn('Lugares reasignados a otra especialidad', {
+        specialty,
+        zone: input.zone,
+        count: specialtyConflicts.length,
+        conflicts: specialtyConflicts,
+      });
+    }
 
     return run;
   }

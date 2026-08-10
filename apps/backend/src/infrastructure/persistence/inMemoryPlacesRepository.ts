@@ -1,9 +1,10 @@
-import type { Specialty } from '@msd/contracts';
+import type { Specialty, SpecialtyConflictDto } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 import type {
   PagedResult,
   PlaceFilters,
   PlacesRepository,
+  UpsertResult,
 } from '@/domain/ports/placesRepository.js';
 
 /**
@@ -23,16 +24,28 @@ export class InMemoryPlacesRepository implements PlacesRepository {
     }
   }
 
-  async upsertMany(places: Place[]): Promise<number> {
+  async upsertMany(places: Place[]): Promise<UpsertResult> {
+    const specialtyConflicts: SpecialtyConflictDto[] = [];
+
     for (const place of places) {
       const existing = this.places.get(place.placeId);
+
+      if (existing && existing.specialty !== place.specialty) {
+        specialtyConflicts.push({
+          placeId: place.placeId,
+          name: place.name,
+          previousSpecialty: existing.specialty,
+          newSpecialty: place.specialty,
+        });
+      }
+
       this.places.set(place.placeId, {
         ...place,
         createdAt: existing?.createdAt ?? place.createdAt,
       });
     }
 
-    return places.length;
+    return { upserted: places.length, specialtyConflicts };
   }
 
   async findBy(filters: PlaceFilters, page: number, pageSize: number): Promise<PagedResult<Place>> {
