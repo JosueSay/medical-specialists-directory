@@ -84,8 +84,9 @@ export type Zone = (typeof SUPPORTED_ZONES)[number];
  *
  * El agentivo esta comprobado en las diez especialidades, no solo en
  * cardiologia: todas aportan registros exclusivos frente a la forma de
- * disciplina. Detalle y numeros por especialidad en docs/design.md, seccion
- * "Forma agentiva en las nueve especialidades restantes". Reproducible con
+ * disciplina. Nueve lo conservan; `generalMedicine` es la excepcion y la razon
+ * esta junto a su entrada. Numeros por especialidad en docs/design.md, seccion
+ * de verificaciones previas, y reproducible con
  * `apps/backend/scripts/compareKeywords.mjs --specialty=all --run`.
  */
 export const SPECIALTY_KEYWORD_VARIANTS: Record<Specialty, readonly string[]> = {
@@ -98,7 +99,13 @@ export const SPECIALTY_KEYWORD_VARIANTS: Record<Specialty, readonly string[]> = 
   ophthalmology: ['oftalmologia', 'oftalmologo', 'clinica oftalmologica'],
   orthopedics: ['ortopedia', 'ortopedista', 'clinica ortopedica', 'centro de traumatologia'],
   psychiatry: ['psiquiatria', 'psiquiatra', 'clinica psiquiatrica', 'centro de salud mental'],
-  generalMedicine: ['medicina general', 'medico general', 'clinica de medicina general'],
+  // Sin forma agentiva a proposito. `medico general` aportaba once registros
+  // exclusivos, pero la inspeccion mostro que no eran medicina general: un
+  // coloproctologo, una clinica de dermatologia, un centro de quiropracticos.
+  // Se comporta como comodin que engancha a cualquier medico, de modo que su
+  // aporte es volumen y no cobertura. Es la unica especialidad donde la forma
+  // agentiva se descarta, y se descarta por precision, no por cantidad.
+  generalMedicine: ['medicina general', 'clinica de medicina general'],
 };
 
 export function isSupportedSpecialty(value: string): value is Specialty {
