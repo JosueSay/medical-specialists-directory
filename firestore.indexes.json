@@ -32,6 +32,15 @@
         { "fieldPath": "specialty", "order": "ASCENDING" },
         { "fieldPath": "collectedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "importRuns",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "specialty", "order": "ASCENDING" },
+        { "fieldPath": "zone", "order": "ASCENDING" },
+        { "fieldPath": "finishedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
