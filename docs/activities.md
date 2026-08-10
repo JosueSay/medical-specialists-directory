@@ -159,6 +159,14 @@ Entregables:
 
 Coordinación: es la primera persona en entregar, porque P1, P2 y P4 dependen del entorno local y de los secretos, y porque la Semana 1 se evalúa casi por completo sobre su trabajo.
 
+### Estado del despliegue (Semana 3)
+
+P3-08, P3-09 y P3-12 quedaron ejecutados de punta a punta contra un proyecto real (`adfasdfasfd-1899a`): `helloWorld` y `api` desplegados como Cloud Functions, secreto `GOOGLE_MAPS_API_KEY` cargado en Secret Manager, UI publicada en Firebase Hosting y consumiendo la API por HTTPS. Demo: [https://adfasdfasfd-1899a.web.app](https://adfasdfasfd-1899a.web.app). Evidencia en [design.md](design.md#evidencia-de-despliegue).
+
+Dos correcciones salieron de esta primera corrida real, documentadas ahí mismo: la URL de la API horneada en el bundle del frontend (`VITE_API_BASE_URL` debía ser relativa, no absoluta) y `TRUST_PROXY_HOPS` corto para la cantidad real de saltos que agrega Hosting.
+
+Pendiente: capturas de la segunda API key y del secreto en Secret Manager; decisión documentada sobre Cloud Armor (P3-10); tag de versión semanal.
+
 ## P4. Frontend y documentación
 
 Responsable de la interfaz mínima y de los entregables escritos, que suman 40% de la evaluación entre documentación y presentación.

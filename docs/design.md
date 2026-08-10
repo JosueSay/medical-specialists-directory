@@ -871,6 +871,20 @@ Ninguna captura debe mostrar el valor de una API key ni de una versión de secre
 
 Cada captura se toma de la pantalla que muestra el resultado ya aplicado, no del formulario que lo configura: un formulario prueba que alguien escribió unos valores, no que quedaran guardados. Para el presupuesto, por ejemplo, la lista de presupuestos muestra en una sola vista el proyecto, los umbrales, el consumo acumulado y si se descontaron créditos, cosa que el formulario de creación no permite verificar.
 
+### Evidencia de despliegue
+
+De la Semana 3, cuyo entregable es la API paginada y la UI accesible vía Firebase Hosting. UI desplegada: [https://adfasdfasfd-1899a.web.app](https://adfasdfasfd-1899a.web.app). En proceso de completarse; las capturas de `deploy --only functions:api:helloWorld`, la segunda API key y el secreto en Secret Manager quedan pendientes de agregar.
+
+| Evidencia                                    | Captura                                                                        | Qué se comprueba en ella                                                          |
+| :-------------------------------------------- | :------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------- |
+| UI desplegada en Hosting, consumiendo la API real | [hosting-ui-working.png](images/hosting-ui-working.png)                     | Filtros de especialidad y zona, tabla con datos reales de Firestore, fecha de recolección |
+| Campo `sitio_web` apuntando a una red social, no a una clínica | [place-website-field-social-media.png](images/place-website-field-social-media.png) | El enlace "Abrir" de un resultado real lleva a un perfil de Facebook, evidencia de la advertencia de la postura ética sobre este campo |
+
+Dos fallos aparecieron al ejecutar el despliegue completo por primera vez, ninguno visible en desarrollo local porque ahí no existe el salto de Hosting ni un origen de navegador distinto del propio backend:
+
+- **CORS por URL absoluta horneada en el bundle.** `apps/frontend/vite.config.ts` lee `VITE_API_BASE_URL` del `.env` de la raíz para el build de producción, y ese archivo traía el valor de desarrollo (`http://localhost:4000/api/v1`), literal en el JavaScript servido. El navegador de quien visitara la UI desplegada intentaba llamar a su propio `localhost`. Corregido dejando `VITE_API_BASE_URL=/api/v1`, una ruta relativa que funciona igual en desarrollo (por el proxy de Vite) y en producción (por el rewrite `/api/**` de `firebase.json`).
+- **`TRUST_PROXY_HOPS` corto.** El valor asumía un único salto de proxy delante de la función. Sirve al llamar directo a la URL de Cloud Functions, pero Hosting agrega un salto más: el log de rechazo de la whitelist (`ipWhitelistMiddleware`) mostró un `forwardedFor` con dos direcciones, la IP real del cliente primero y una IP de Google variable después, y con `TRUST_PROXY_HOPS=1` Express resolvía esta segunda como si fuera el cliente. Se corrigió a `2` en `apps/backend/functions.env`, verificado contra el mismo log tras redesplegar.
+
 ## Estrategia de keywords
 
 El enunciado exige diseñar y documentar esta estrategia **antes** de ejecutar cualquier búsqueda. Su calidad pesa en la evaluación de la Semana 2.

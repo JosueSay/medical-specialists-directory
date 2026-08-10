@@ -2,6 +2,10 @@
 
 Proyecto académico del curso CC3106 Responsible AI de la Universidad del Valle de Guatemala. Construye un directorio de médicos especialistas de Ciudad de Guatemala para el Ministerio de Educación, sobre Firebase y Google Cloud Platform. Expone una API REST con dos endpoints: uno de sincronización contra Google Places y otro de consulta sobre la base propia.
 
+## Demo desplegada
+
+[https://adfasdfasfd-1899a.web.app](https://adfasdfasfd-1899a.web.app)
+
 ## Documentación
 
 | Documento                                              | Contenido                                                                                 |
