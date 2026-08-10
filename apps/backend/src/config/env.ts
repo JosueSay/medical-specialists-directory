@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 import { z } from 'zod';
+import { API_BASE_PATH as CONTRACT_API_BASE_PATH } from '@msd/contracts';
 
 /**
  * Configuracion tipada del backend.
@@ -48,7 +49,11 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   BACKEND_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-  API_BASE_PATH: z.string().startsWith('/').default('/api/v1'),
+  // El valor por defecto sale del contrato, que lo deriva de `API_VERSION`. Con
+  // `/api/v1` escrito aqui a mano, subir la version del contrato habria movido
+  // al frontend sin mover al backend: la UI llamaria a una ruta que el servidor
+  // no sirve, y nada avisaria hasta la primera peticion.
+  API_BASE_PATH: z.string().startsWith('/').default(CONTRACT_API_BASE_PATH),
   CORS_ALLOWED_ORIGINS: csvList.default(['http://localhost:5173']),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(1),
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(0).default(60),
