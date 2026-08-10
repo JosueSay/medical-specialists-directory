@@ -42,6 +42,17 @@ jobs:
       - name: Pruebas
         run: pnpm run test
 
+      # El adaptador de Firestore no lo cubre ninguna prueba unitaria, porque
+      # esas usan el repositorio en memoria. Dos defectos llegaron a produccion
+      # por esa via, asi que el emulador corre tambien en CI y no solo cuando
+      # alguien se acuerda de levantarlo.
+      - name: Pruebas de integracion contra el emulador de Firestore
+        run: >
+          npx -y firebase-tools@15.25.1 emulators:exec
+          --only firestore
+          --project msd-integration-tests
+          "pnpm run --filter @msd/backend test:integration"
+
       # Verifica que la funcion sigue empaquetandose: un fallo aqui significa
       # que el despliegue se rompio, no las pruebas
       - name: Empaquetar la Cloud Function

@@ -207,6 +207,17 @@ El valor del secreto es el de la key del despliegue, no el de la de desarrollo.
 
 Sin el documento `config/ipWhitelist`, la función responde `403` a toda petición: la lista vacía cierra el paso, que es el comportamiento correcto pero da la impresión de un despliegue roto.
 
+## Pruebas de integración
+
+El adaptador de Firestore se prueba contra el emulador, no con dobles. No entran en `pnpm check` porque necesitan un servicio corriendo.
+
+```bash
+docker compose --profile emulator up mnemosyne        # en otra terminal
+pnpm run --filter @msd/backend test:integration
+```
+
+No consumen cuota ni tocan la base real: el emulador es local. El criterio de qué cubren está en [standards/testing.md](standards/testing.md#pruebas-de-integración).
+
 ## Antes de abrir un Pull Request
 
 ```bash
