@@ -128,7 +128,7 @@ La función no se sube tal cual está en `apps/backend`. Firebase corre `npm ins
 La whitelist en producción vive en un documento de Firestore. Para probar ese camino sin desplegar, se levanta el emulador de Firestore y se arranca el backend apuntando a él:
 
 ```bash
-docker compose --profile emulator up mnemosyne
+docker compose --profile emulator up -d mnemosyne
 PERSISTENCE_DRIVER=firestore FIRESTORE_EMULATOR_HOST=localhost:8080 \
   FIREBASE_PROJECT_ID=demo-msd IP_WHITELIST= pnpm dev:backend
 ```
@@ -240,7 +240,11 @@ En el backend los imports internos llevan extensión `.js` porque el proyecto se
 | Backend    | nodemon con `tsx` | Observa `src` y el `dist` del contrato; usa polling para funcionar sobre volúmenes montados       |
 | Frontend   | Vite              | `server.watch.usePolling` se controla con `WATCH_USE_POLLING`, necesario en WSL2 y Docker Desktop |
 
-El proxy de Vite reenvía `/api` al backend en desarrollo, de modo que no hace falta configurar CORS para trabajar.
+Vite trae un proxy que reenvía `/api` al backend, pero **solo interviene si `VITE_API_BASE_URL` es una ruta relativa**. El valor por defecto es absoluto (`http://localhost:4000/api/v1`), de modo que el navegador llama al backend directamente y CORS sí aplica.
+
+Eso importa al cambiar de puerto. Si se modifica `FRONTEND_PORT` hay que actualizar también `CORS_ALLOWED_ORIGINS`, porque el backend rechaza cualquier origen que no figure ahí. El síntoma es desconcertante: la petición aparece en el navegador con estado `200` y aun así la interfaz muestra un error, porque el servidor respondió pero el navegador bloqueó la respuesta antes de entregarla al JavaScript.
+
+Poner `VITE_API_BASE_URL=/api/v1` evita el problema de raíz: las peticiones salen del mismo origen que la página y CORS no entra en juego.
 
 ## Internacionalización
 

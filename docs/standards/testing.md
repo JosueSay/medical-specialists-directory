@@ -70,7 +70,7 @@ Las reglas anteriores describen pruebas que no dependen de nada externo. Hay una
 La razón es que un doble de Firestore probaría el doble, no Firestore. Dos defectos llegaron a producción por esa vía: la purga filtraba por un campo que la entidad no tiene, y faltaba un índice compuesto. Ninguna prueba unitaria podía detectarlos porque todas usan el repositorio en memoria, y el único entorno donde el comportamiento difería era el único que nadie ejercitaba.
 
 ```bash
-docker compose --profile emulator up mnemosyne        # en otra terminal
+docker compose --profile emulator up -d mnemosyne
 pnpm run --filter @msd/backend test:integration
 ```
 

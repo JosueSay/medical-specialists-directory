@@ -897,12 +897,16 @@ Entregable de la Semana 1. Las capturas se guardan en `docs/images/` y se enlaza
 
 De la Semana 2, cuyo entregable es una colección con datos reales:
 
-| Evidencia                       | Captura                                                     | Qué se comprueba en ella                                              |
-| :------------------------------ | :---------------------------------------------------------- | :-------------------------------------------------------------------- |
-| Colección `places` en Firestore | [firestore-places.png](images/firestore-places.png)         | Documentos identificados por su `placeId` y con los campos del modelo |
-| Registro de la sincronización   | [firestore-import-run.png](images/firestore-import-run.png) | `importRuns` con páginas recorridas, elementos traídos y persistidos  |
+| Evidencia                       | Captura                                                     | Qué se comprueba en ella                                                                |
+| :------------------------------ | :---------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+| Colección `places` en Firestore | [firestore-places.png](images/firestore-places.png)         | Documentos identificados por su `placeId` y con los campos del modelo                   |
+| Registro de la sincronización   | [firestore-import-run.png](images/firestore-import-run.png) | `importRuns` con páginas recorridas, elementos traídos y persistidos                    |
+| Corrida completa del catálogo   | [campaign-run.png](images/campaign-run.png)                 | 770 sincronizaciones sin fallos, el total de documentos únicos y el reparto por zona    |
+| Costo real de la campaña        | Pendiente: `images/billing-campaign-cost.png`               | Informe de facturación agrupado por SKU, para contrastar contra los 18.90 USD aprobados |
 
 El registro de la sincronización acredita algo que la colección de lugares por sí sola no muestra: que el recorrido respetó el tope de dos páginas y que cada dato llegó de una keyword declarada, no inferida.
+
+La evidencia de costo queda pendiente por una razón que conviene anotar: **los informes de facturación tardan hasta 24 horas**. Consultados justo después de la campaña seguían mostrando dos llamadas y cero dólares, cuando la corrida había hecho alrededor de mil quinientas. Capturar ese cero habría documentado que la campaña salió gratis cuando lo único cierto era que el dato no había llegado.
 
 Las alertas del 50% y del 90% no son dos presupuestos sino dos umbrales de uno solo, de modo que una única captura de la lista de presupuestos las acredita a ambas: muestra a la vez el nombre, el proyecto al que se aplica, los tres umbrales y el consumo acumulado.
 
