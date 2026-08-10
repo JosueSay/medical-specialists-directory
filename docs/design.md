@@ -1080,6 +1080,41 @@ La verificación de cardiología no se extendía sola a las demás: cada especia
 
 La coincidencia del 95% no es del 100%, y sería deshonesto presentarla como tal. Pero duplicar el costo de la corrida completa para perseguir una diferencia del 5% que además se comporta como ruido no se justifica. Se conserva una sola grafía, sin tilde, que es la que ya usa el catálogo.
 
+#### El agentivo en las diez especialidades
+
+El hallazgo se comprobó en cardiología y se extendió al resto antes de la corrida completa, comparando la forma de disciplina contra la agentiva en cada especialidad, con páginas de 20. Son 20 llamadas en el SKU Pro, sin costo. Cardiología se repitió como control: devolvió los mismos 3 exclusivos y 17 coincidentes que la corrida anterior, lo que confirma que el experimento es reproducible.
+
+| Especialidad     | Disciplina | Agentivo | Exclusivos del agentivo | Coincidentes |
+| :--------------- | ---------: | -------: | ----------------------: | -----------: |
+| Oncología        |         10 |       15 |                       5 |           10 |
+| Cardiología      |         20 |       20 |                       3 |           17 |
+| Pediatría        |         20 |       20 |                       5 |           15 |
+| Dermatología     |         20 |       20 |                       3 |           17 |
+| Ginecología      |         20 |       20 |                       2 |           18 |
+| Neurología       |         17 |       20 |                       5 |           15 |
+| Oftalmología     |         20 |       20 |                       3 |           17 |
+| **Ortopedia**    |      **8** |   **20** |                  **14** |            6 |
+| Psiquiatría      |         18 |       20 |                       4 |           16 |
+| Medicina general |         20 |       20 |                      11 |            9 |
+
+**Nueve especialidades conservan la forma agentiva.** Dos filas exigieron mirar el contenido y no solo el conteo, y llevaron a decisiones opuestas.
+
+**Ortopedia: se conservan ambas.** `ortopedia` devuelve apenas 8 resultados frente a los 20 de `ortopedista`, y la mayoría de los exclusivos del agentivo se anuncian como _traumatólogo_: el dominio se nombra a sí mismo de otra manera, lo que confirma que la variante de campo semántico `centro de traumatologia` estaba bien elegida. Aun así la forma de disciplina aporta 2 registros que el agentivo no encuentra, de modo que se mantiene. Su bajo rendimiento no es razón para descartarla mientras siga aportando registros propios, y 22 sincronizaciones cuestan 1.54 USD.
+
+**Medicina general: se descarta la forma agentiva.** Aporta once exclusivos, pero la inspección de sus nombres muestra que no son medicina general. Entre ellos hay un coloproctólogo, una clínica de dermatología, una de cardiología, un centro de quiroprácticos y una clínica de pérdida de peso. `medico general` se comporta como un comodín que engancha a cualquier médico e incluso a negocios que no lo son.
+
+Es la única especialidad donde el agentivo se descarta, y conviene subrayar por qué: **no por cantidad sino por precisión**. Once exclusivos son más de los que aportó ninguna otra variante; el problema es que están mal clasificados. Guardar un dermatólogo bajo `generalMedicine` no amplía la cobertura del directorio, la corrompe: el usuario que filtre por medicina general recibiría especialistas de otra cosa.
+
+La decisión introduce un segundo criterio junto al de aportar registros exclusivos: **una variante se descarta si los registros que aporta pertenecen mayoritariamente a otra especialidad**. El primero se mide con el script; el segundo requiere mirar los nombres, y por eso el script los imprime en lugar de limitarse al conteo.
+
+#### Qué mide este experimento y qué no
+
+La distinción anterior es la limitación central del método: **mide cobertura, no precisión**. Una variante que aporta cinco registros nuevos y equivocados puntúa igual que una que aporta cinco correctos, porque el criterio cuenta identificadores sin juzgar si pertenecen a la especialidad consultada.
+
+El ruido no se concentra en una fila. `Hospital Esperanza` aparece como exclusivo tanto en oftalmología como en neurología; `Centro de Geriatría de Guatemala`, en neurología y en psiquiatría; `Edificio Artes Medicas`, que es un edificio y no una consulta, en oftalmología. Las formas de disciplina padecen lo mismo: `cardiologia` trajo ese mismo centro de geriatría.
+
+De ahí se siguen dos cosas. Que el filtrado por `includedType` con `strictTypeFiltering` acota el rubro pero no garantiza que el establecimiento ejerza la especialidad buscada, y que **el directorio contendrá falsos positivos**. Medirlos exigiría clasificar los registros a mano, trabajo que queda fuera del alcance; lo que sí corresponde es declararlo en la postura ética y no presentar la base como un listado verificado de especialistas.
+
 #### Qué deja este experimento
 
 El valor no es solo técnico. La estrategia de keywords se diseñó con un argumento razonable, se puso a prueba y **la prueba refutó una de sus dos decisiones**. La documentación se comprometió a registrar la evidencia aunque contradijera el ejemplo del enunciado; acabó contradiciendo al equipo, y el enunciado tenía razón.
@@ -1116,20 +1151,42 @@ El catálogo no tiene el mismo número de variantes en todas las especialidades,
 | :----------------------------- | --------: | ---------------: | --------: | ----------: | :------------ |
 | Una sincronización individual  |         1 |                1 |         2 |           0 | 0.00 USD      |
 | Catálogo antes del experimento |        26 |              572 |     1,144 |         144 | 5.04 USD      |
-| **Catálogo con el agentivo**   |    **36** |          **792** | **1,584** |     **584** | **20.44 USD** |
+| **Catálogo verificado**        |    **35** |          **770** | **1,540** |     **540** | **18.90 USD** |
 
-Recuperar la forma agentiva cuesta **15.40 USD adicionales**: diez variantes nuevas, una por especialidad. Cabe holgadamente en el crédito de la prueba gratuita, pero deja de ser cero, y esa es la contrapartida de la cobertura que aporta.
+El catálogo verificado cuesta **13.86 USD más** que el anterior: nueve variantes agentivas nuevas, una por especialidad salvo medicina general. Cabe holgadamente en el crédito de la prueba gratuita, pero deja de ser cero, y esa es la contrapartida de la cobertura que aporta.
 
-Dos consecuencias operativas. La corrida completa conviene ejecutarla dentro de un mismo mes, porque el umbral gratuito se renueva mensualmente y repartirla sin motivo desaprovecha 1,000 llamadas libres. Y como el agentivo solo está comprobado en cardiología, verificar los otros nueve antes de la corrida puede ahorrar más de lo que cuesta comprobarlo: una variante que no aporte son 22 sincronizaciones inútiles, 1.54 USD, frente a los 0.07 USD que cuesta medirla.
+La corrida completa conviene ejecutarla dentro de un mismo mes, porque el umbral gratuito se renueva mensualmente y repartirla sin motivo desaprovecha 1,000 llamadas libres.
 
 Dos límites distintos, que no deben confundirse:
 
 - **Por operación**: una sincronización nunca debe superar 1 USD. Con 2 llamadas por invocación el costo con la tarifa de referencia es de 0.034 USD. Aun si el SKU Enterprise costara diez veces más, el límite se mantendría. Si una sola sincronización se acercara a 1 USD, significaría que el tope de resultados o el tamaño de página fueron alterados y hay que revisarlo.
 - **Por campaña**: una corrida completa del catálogo no es una operación sino una campaña planificada, y requiere presupuesto declarado y aprobación previa del equipo. Se recalcula con el precio real del SKU antes de ejecutarla.
 
+#### Presupuesto aprobado para la corrida completa
+
+| Concepto               | Valor                                     |
+| :--------------------- | :---------------------------------------- |
+| Alcance                | Catálogo completo: 35 variantes, 22 zonas |
+| Sincronizaciones       | 770                                       |
+| Llamadas               | 1,540, de las que 540 son facturables     |
+| **Presupuesto**        | **18.90 USD**                             |
+| Proporción del crédito | 6.3% de los 300 USD                       |
+| Aprobación             | P3, como coordinador                      |
+
+La justificación es que la cobertura pesa un 20% en la evaluación y esos 18.90 USD compran entre un 15% y un 20% más de registros por combinación, según midió la verificación de variantes. Renunciar a ese gasto no ahorra nada aprovechable: el crédito vence el 16 de octubre de 2026 y no gastarlo no lo convierte en otra cosa.
+
+**No se amplía el alcance más allá del catálogo.** Sincronizar zonas o especialidades que el contrato no declara produciría datos que la interfaz no puede pedir: gasto sin destino.
+
+Dos condiciones de ejecución, que no son opcionales:
+
+- **La cuota diaria hay que subirla antes y bajarla después.** Está en 200 solicitudes por día y la campaña necesita 1,540: al ritmo actual tardaría ocho días. Se sube a 2,000 el día de la corrida y se devuelve a 200 al terminar. Que la protección estorbe cuando el gasto es deliberado es señal de que está bien puesta, no de que sobre.
+- **La corrida se ejecuta una sola vez.** Repetirla no añade registros nuevos salvo que Google haya cambiado sus datos, y sí vuelve a facturar. El cooldown no protege aquí, porque opera por keyword y zona y la campaña recorre combinaciones distintas.
+
 ### Ejecución
 
-Las 880 combinaciones de especialidad, variante y zona no se disparan a mano. El operador ejecuta un script que recorre el catálogo e invoca `POST /api/v1/place-imports` por cada combinación. Sigue siendo una acción deliberada y no un proceso programado, y como el cooldown opera por keyword y zona, un recorrido de combinaciones distintas no lo activa.
+Las 770 combinaciones de especialidad, variante y zona no se disparan a mano. El operador ejecuta un script que recorre el catálogo e invoca `POST /api/v1/place-imports` por cada combinación. Sigue siendo una acción deliberada y no un proceso programado, y como el cooldown opera por keyword y zona, un recorrido de combinaciones distintas no lo activa.
+
+El script todavía no existe. Cuando se escriba debe respetar la cuota por minuto, que está en 60 solicitudes: a dos llamadas por sincronización, el recorrido no puede superar 30 sincronizaciones por minuto sin empezar a recibir `429`. Con ese ritmo la campaña completa tarda unos 26 minutos.
 
 ### Cobertura que queda fuera
 
@@ -1214,15 +1271,16 @@ done
 
 Se aplica el ciclo mapear, medir y manejar.
 
-| Riesgo                                                                                  | Métrica                                                 | Mitigación                                                                                     |
-| :-------------------------------------------------------------------------------------- | :------------------------------------------------------ | :--------------------------------------------------------------------------------------------- |
-| Cobertura desigual entre zonas: Places API tiene menos registros en áreas rurales       | Registros por zona respecto al total                    | Documentar la cobertura por zona y no presentar la base como censo completo                    |
-| Sesgo de despliegue: el sistema se prueba con datos inventados y falla con datos reales | Diferencia entre resultados en emulador y en producción | Ejecutar la sincronización contra Places API real antes de entregar                            |
-| Datos desactualizados servidos como vigentes                                            | Antigüedad de `collectedAt` por documento               | TTL explícito, marca `stale` y `collectedAt` visible en la respuesta                           |
-| Fuga o abuso de la API key                                                              | Llamadas facturadas por día                             | Variables de entorno, key por integrante restringida por IP, cuota diaria y alertas de billing |
-| Gasto no controlado por sincronizaciones repetidas                                      | Sincronizaciones por keyword y por día                  | Cooldown por keyword y zona, tope de 20 resultados por invocación                              |
-| Exposición innecesaria de datos                                                         | Campos devueltos por endpoint                           | La respuesta incluye solo los campos que la UI utiliza                                         |
-| Campos vacíos que se interpretan como error del sistema                                 | Porcentaje de registros sin `phoneNumber` o `website`   | Reportar la cobertura real de cada campo en la documentación, sin rellenarlos                  |
+| Riesgo                                                                                  | Métrica                                                 | Mitigación                                                                                                              |
+| :-------------------------------------------------------------------------------------- | :------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------- |
+| Cobertura desigual entre zonas: Places API tiene menos registros en áreas rurales       | Registros por zona respecto al total                    | Documentar la cobertura por zona y no presentar la base como censo completo                                             |
+| Sesgo de despliegue: el sistema se prueba con datos inventados y falla con datos reales | Diferencia entre resultados en emulador y en producción | Ejecutar la sincronización contra Places API real antes de entregar                                                     |
+| Datos desactualizados servidos como vigentes                                            | Antigüedad de `collectedAt` por documento               | TTL explícito, marca `stale` y `collectedAt` visible en la respuesta                                                    |
+| Fuga o abuso de la API key                                                              | Llamadas facturadas por día                             | Variables de entorno, key por integrante restringida por IP, cuota diaria y alertas de billing                          |
+| Gasto no controlado por sincronizaciones repetidas                                      | Sincronizaciones por keyword y por día                  | Cooldown por keyword y zona, tope de 20 resultados por invocación                                                       |
+| Exposición innecesaria de datos                                                         | Campos devueltos por endpoint                           | La respuesta incluye solo los campos que la UI utiliza                                                                  |
+| Campos vacíos que se interpretan como error del sistema                                 | Porcentaje de registros sin `phoneNumber` o `website`   | Reportar la cobertura real de cada campo en la documentación, sin rellenarlos                                           |
+| Falsos positivos: registros que no ejercen la especialidad bajo la que se guardaron     | No medida, requeriría clasificación manual              | Declarar la limitación y conservar `sourceKeyword` para que cada registro sea rastreable hasta la consulta que lo trajo |
 
 ## Postura ética
 
@@ -1235,8 +1293,9 @@ Sección requerida por el enunciado. Se irá ampliando conforme avance la implem
 - **Minimización.** Solo se persisten los campos necesarios para localizar un especialista. Se descartaron coordenadas y calificación por no ser requeridos.
 - **Datos de salud.** Aunque los registros provienen de fuentes públicas de negocios, el dominio es sanitario. No se almacena información de pacientes ni datos personales sensibles.
 - **Cobertura desigual y qué mide realmente el conteo.** El sistema no cuenta médicos: cuenta negocios registrados en Google Maps cuyo nombre coincide con las keywords del catálogo. Un conteo bajo en una zona admite al menos tres explicaciones que el dato no permite distinguir entre sí: que haya pocos especialistas, que los haya pero no registren su consultorio en Google, o que atiendan dentro de hospitales y centros de salud públicos que no aparecen como registro independiente. Un negocio llega a Google Maps cuando alguien tuvo el interés comercial y la capacidad técnica de registrarlo, de modo que el conteo refleja en buena parte presencia digital y solo de forma indirecta oferta médica. Presentar estas cifras como medida de disponibilidad de atención induciría a decisiones equivocadas sobre dónde asignar recursos. La documentación reporta el conteo por zona acompañado siempre de esta advertencia.
-- **Sesgo de nombre comercial.** Places API no modela la especialidad médica como atributo, por lo que la recolección depende de que el negocio la incluya en su nombre. Esto favorece de forma sistemática a clínicas y centros con presencia comercial establecida, y deja fuera al profesional que ejerce bajo su propio nombre. Es una limitación estructural de la fuente, no un defecto corregible con más keywords, y se declara como tal.
-- **Un lugar puede quedar bajo la especialidad equivocada.** La consecuencia directa del punto anterior: si el mismo negocio coincide con la búsqueda de más de una especialidad, la sincronización más reciente le gana la etiqueta a la anterior (`placeId` es la clave del documento). Un centro médico grande, por ejemplo, puede terminar catalogado bajo la última especialidad que se sincronizó y no bajo todas las que ofrece. `specialtyConflicts` en el resumen de `POST /api/v1/place-imports` deja esto visible en el momento en que ocurre, pero no lo corrige: el sistema no tiene forma de saber, con los datos que la fuente entrega, cuál de las especialidades coincidentes es "la" correcta.
+- **Sesgo de nombre comercial.** Places API no modela la especialidad médica como atributo, por lo que la recolección depende de que el negocio la incluya en su nombre. Esto favorece de forma sistemática a clínicas y centros con presencia comercial establecida. La verificación empírica matizó una parte de esta limitación: recuperar la forma agentiva incorporó a profesionales que ejercen bajo su propio nombre, que la forma de disciplina no alcanzaba. Sigue quedando fuera quien no menciona su especialidad en el rótulo, y eso es estructural de la fuente y no corregible con más keywords.
+- **Un lugar puede quedar bajo la especialidad equivocada.** Si el mismo negocio coincide con la búsqueda de más de una especialidad, la sincronización más reciente le gana la etiqueta a la anterior, porque `placeId` es la clave del documento. Un centro médico grande puede terminar catalogado bajo la última especialidad que se sincronizó y no bajo todas las que ofrece. `specialtyConflicts` en el resumen de `POST /api/v1/place-imports` deja esto visible en el momento en que ocurre, pero no lo corrige: el sistema no tiene forma de saber, con los datos que la fuente entrega, cuál de las especialidades coincidentes es «la» correcta.
+- **Y puede no ser de ninguna de ellas.** Es un problema distinto del anterior y peor: no que dos especialidades se disputen un lugar, sino que el lugar no ejerza ninguna. La verificación de variantes mostró que las consultas devuelven establecimientos de otras disciplinas, hospitales generales e incluso un edificio de consultorios: `medico general` trajo dermatólogos y coloproctólogos, y `neurologo` trajo un centro de geriatría. El filtro por tipo acota el rubro pero no la disciplina. No se midió qué proporción de la base son falsos positivos, porque exigiría clasificar los registros a mano; declararlo es lo que corresponde. Por eso `sourceKeyword` se conserva en cada documento: permite rastrear de qué consulta salió cada registro y auditar la asignación en lugar de tener que confiar en ella.
 
 ## Referencias
 
