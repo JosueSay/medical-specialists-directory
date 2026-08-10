@@ -1,6 +1,6 @@
 # Entorno de desarrollo
 
-Guía operativa del repositorio: cómo levantarlo, qué hace cada carpeta y qué se configura dónde. El diseño del sistema completo está en [design.md](design.md).
+Guía operativa del repositorio: cómo levantarlo, qué hace cada carpeta y qué se configura dónde. El diseño del sistema completo está en [design.md](design.md) y la obtención de cuentas y credenciales de Google en [credentials-setup.md](credentials-setup.md). Para la secuencia de comandos sin explicaciones, de cero a desplegado, está el [runbook.md](runbook.md).
 
 ## Requisitos
 
@@ -21,7 +21,7 @@ pnpm dev
 
 `pnpm dev` levanta en paralelo el contrato en modo watch, el backend con nodemon y el frontend con Vite. La UI queda en `http://localhost:5173` y la API en `http://localhost:4000/api/v1`.
 
-Con los valores por defecto no hace falta cuenta de Google ni de Firebase: el backend arranca con datos de ejemplo en memoria y un proveedor simulado.
+Con los valores por defecto no hace falta cuenta de Google ni de Firebase: el backend arranca con datos de ejemplo en memoria y un proveedor simulado. Para conectar contra Places API y Firestore reales, el recorrido de cuentas y credenciales está en [credentials-setup.md](credentials-setup.md).
 
 ### Con Docker
 
@@ -98,6 +98,26 @@ docker compose --profile tools run --rm hermes deploy --only hosting
 ```
 
 Cada comando ejecuta antes sus hooks de `predeploy`: compilar el contrato y, según el caso, empaquetar la función o construir la UI.
+
+Para desplegar **una función suelta** el filtro lleva tres partes, porque `firebase.json` declara un codebase con nombre:
+
+```bash
+docker compose --profile tools run --rm hermes deploy --only functions:api:helloWorld
+```
+
+Sin el segmento del codebase, `--only functions:helloWorld` falla con `No function matches given --only filters`: Firebase interpreta `helloWorld` como el nombre de un codebase, no de una función.
+
+Ese filtro es además la forma de desplegar `helloWorld` **antes** de tener el secreto en Secret Manager. La función `api` declara `GOOGLE_MAPS_API_KEY` en su configuración, y desplegar el codebase completo sin ese secreto creado falla.
+
+#### La primera vez
+
+El primer despliegue del proyecto hace cosas que los siguientes ya no repiten, y por eso tarda bastante más:
+
+- Habilita por su cuenta las APIs que necesita: Cloud Functions, Cloud Build, Artifact Registry, Cloud Run, Eventarc y Secret Manager.
+- Pregunta cuántos días conservar las imágenes de contenedor en Artifact Registry. **Responder `1`.** Cada despliegue genera una imagen y sin política de limpieza se acumulan; la capa gratuita es de 0.5 GB y unas pocas imágenes la superan. Conservarlas no aporta nada, porque volver atrás se hace redesplegando desde el código.
+- Corepack pide confirmación para descargar pnpm dentro del contenedor. Es esperado: la imagen prepara pnpm como `root` y el contenedor corre como `node`, cuya caché vive en un volumen aparte.
+
+Antes de subir nada, Firebase **importa el módulo** para descubrir qué funciones exporta. Eso ejecuta el composition root, así que en la salida aparecen los logs de arranque del backend con la configuración de producción. No es un despliegue en marcha: es el análisis, y sirve como comprobación temprana de que los adaptadores elegidos son los correctos.
 
 La función no se sube tal cual está en `apps/backend`. Firebase corre `npm install` dentro de la nube, donde el protocolo `workspace:` de pnpm no existe, así que `pnpm run --filter @msd/backend bundle` genera en `apps/backend/.deploy/` un artefacto autocontenido: el código del workspace incrustado en un solo archivo, las dependencias de npm declaradas normalmente y `functions.env` copiado como `.env`. El razonamiento está en [design.md](design.md#empaquetado-para-el-despliegue).
 

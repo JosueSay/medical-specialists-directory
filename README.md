@@ -10,6 +10,8 @@ Proyecto académico del curso CC3106 Responsible AI de la Universidad del Valle 
 | [docs/design.md](docs/design.md)                       | Diseño del sistema: requisitos, arquitectura, contratos, modelo de datos y postura ética  |
 | [docs/activities.md](docs/activities.md)               | Reparto de trabajo por persona y cronograma por semana                                    |
 | [docs/development-setup.md](docs/development-setup.md) | Entorno de desarrollo: puesta en marcha, estructura, configuración y pruebas              |
+| [docs/credentials-setup.md](docs/credentials-setup.md) | Cuentas, crédito de Google Cloud, API key, Firebase y secretos del despliegue             |
+| [docs/runbook.md](docs/runbook.md)                     | Secuencia de comandos de cero a desplegado, con los errores frecuentes y su causa         |
 | [docs/standards/](docs/standards/README.md)            | Estándares del equipo: arquitectura, API, código, Git, seguridad, pruebas y documentación |
 
 ## Puesta en marcha
