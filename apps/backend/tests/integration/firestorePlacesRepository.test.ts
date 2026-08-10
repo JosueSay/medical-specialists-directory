@@ -125,15 +125,28 @@ describe('FirestorePlacesRepository contra el emulador', () => {
       expect(snapshot.docs[0]?.data().name).toBe('Nombre corregido');
     });
 
-    it('conserva createdAt del documento existente', async () => {
+    /**
+     * La segunda escritura trae `createdAt` con la fecha de la sincronizacion
+     * nueva, que es lo que hace siempre el adaptador de Google. La version
+     * anterior de esta prueba construia a proposito un objeto sin ese campo, un
+     * caso que en produccion no ocurre nunca, y por eso pasaba mientras el
+     * adaptador real sobrescribia la fecha en cada reimportacion.
+     */
+    it('conserva createdAt del documento existente aunque la escritura traiga otro', async () => {
       await repository.upsertMany([buildPlace({ createdAt: '2025-06-01T00:00:00.000Z' })]);
-      // La segunda escritura llega sin createdAt, como si el proveedor no lo diera
-      const { createdAt: _ignored, ...withoutCreatedAt } = buildPlace();
-      await repository.upsertMany([withoutCreatedAt as Place]);
+      await repository.upsertMany([buildPlace({ createdAt: '2026-08-10T00:00:00.000Z' })]);
 
       const document = await db.collection(PLACES_COLLECTION).doc('place-1').get();
 
       expect(document.data()?.createdAt).toBe('2025-06-01T00:00:00.000Z');
+    });
+
+    it('usa el createdAt entrante cuando el documento no existia', async () => {
+      await repository.upsertMany([buildPlace({ createdAt: '2026-08-10T00:00:00.000Z' })]);
+
+      const document = await db.collection(PLACES_COLLECTION).doc('place-1').get();
+
+      expect(document.data()?.createdAt).toBe('2026-08-10T00:00:00.000Z');
     });
 
     it('guarda la cadena vacia cuando el proveedor no entrega el dato', async () => {

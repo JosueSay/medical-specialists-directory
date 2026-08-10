@@ -38,10 +38,17 @@ export class FirestorePlacesRepository implements PlacesRepository {
     const existingDocs = await this.db.getAll(...refs);
     const specialtyConflicts: SpecialtyConflictDto[] = [];
 
+    const batch = this.db.batch();
+
     existingDocs.forEach((doc, index) => {
       const existing = doc.data() as Place | undefined;
       const incoming = places[index];
-      if (existing && incoming && existing.specialty !== incoming.specialty) {
+
+      if (!incoming) {
+        return;
+      }
+
+      if (existing && existing.specialty !== incoming.specialty) {
         specialtyConflicts.push({
           placeId: incoming.placeId,
           name: incoming.name,
@@ -49,12 +56,19 @@ export class FirestorePlacesRepository implements PlacesRepository {
           newSpecialty: incoming.specialty,
         });
       }
-    });
 
-    const batch = this.db.batch();
-    places.forEach((place, index) => {
-      // merge conserva createdAt del documento existente y hace la escritura idempotente
-      batch.set(refs[index]!, place, { merge: true });
+      // `createdAt` se conserva del documento existente. El merge no basta: el
+      // adaptador siempre trae ese campo con la fecha de la sincronizacion
+      // actual, de modo que sin esto cada reimportacion lo pisaria y el campo
+      // acabaria duplicando a `collectedAt` en lugar de decir desde cuando el
+      // registro esta en la base. La lectura previa ya esta hecha para detectar
+      // conflictos de especialidad, asi que conservarlo no cuesta una consulta
+      // mas.
+      const merged: Place = existing?.createdAt
+        ? { ...incoming, createdAt: existing.createdAt }
+        : incoming;
+
+      batch.set(refs[index]!, merged, { merge: true });
     });
 
     await batch.commit();
