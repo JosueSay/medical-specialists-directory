@@ -139,7 +139,7 @@ Tres cambios sobre la capa de consulta salieron de ejecutar el sistema contra Fi
 
 **El adaptador de Firestore ya tiene pruebas de integración** contra el emulador, en `apps/backend/tests/integration/`. Cubren los cuatro métodos del puerto, incluida la paginación y el orden que P2-02 y P2-04 definen. Se ejecutan con `pnpm run --filter @msd/backend test:integration` y en CI.
 
-Lo que decide P2: **si el filtro de texto vuelve**. Si el equipo lo quisiera, la vía honesta es declararlo como búsqueda por prefijo en el contrato, alinear ambos adaptadores y asumir la limitación de forma explícita — con nombres médicos, el término distintivo casi nunca va primero, así que un prefijo encontraría poco.
+**Decisión de P2, Semana 3: el filtro de texto no vuelve.** No queda tiempo dentro del curso para hacerlo bien, y hacerlo mal es peor que no hacerlo: un campo de búsqueda que devuelve poco parece un directorio incompleto, no una limitación técnica. El requisito de filtrado lo cubren la especialidad y la zona, que es lo que el enunciado enumera. La vía correcta, si alguien retomara el proyecto, queda escrita en [design.md](design.md#por-qué-no-hay-búsqueda-por-texto): declararlo como búsqueda por prefijo en el contrato y alinear ambos adaptadores, asumiendo de forma explícita que con nombres médicos el término distintivo casi nunca va primero.
 
 ## P3. Seguridad e infraestructura
 
@@ -171,11 +171,17 @@ Coordinación: es la primera persona en entregar, porque P1, P2 y P4 dependen de
 
 ### Estado del despliegue (Semana 3)
 
-P3-08, P3-09 y P3-12 quedaron ejecutados de punta a punta contra un proyecto real (`adfasdfasfd-1899a`): `helloWorld` y `api` desplegados como Cloud Functions, secreto `GOOGLE_MAPS_API_KEY` cargado en Secret Manager, UI publicada en Firebase Hosting y consumiendo la API por HTTPS. Demo: [https://adfasdfasfd-1899a.web.app](https://adfasdfasfd-1899a.web.app). Evidencia en [design.md](design.md#evidencia-de-despliegue).
+P3-03, P3-06, P3-08, P3-09 y P3-12 quedaron ejecutados de punta a punta: `helloWorld` y `api` desplegados como Cloud Functions, secreto `GOOGLE_MAPS_API_KEY` en Secret Manager con acceso concedido por IAM a la cuenta de la función, whitelist en el documento `config/ipWhitelist` y UI publicada en Hosting consumiendo la API por HTTPS. Evidencia en [design.md](design.md#evidencia-de-despliegue).
 
-Dos correcciones salieron de esta primera corrida real, documentadas ahí mismo: la URL de la API horneada en el bundle del frontend (`VITE_API_BASE_URL` debía ser relativa, no absoluta) y `TRUST_PROXY_HOPS` corto para la cantidad real de saltos que agrega Hosting.
+El despliegue se hizo dos veces y en proyectos distintos, cosa que conviene explicar porque no fue un descuido.
 
-Pendiente: capturas de la segunda API key y del secreto en Secret Manager; decisión documentada sobre Cloud Armor (P3-10); tag de versión semanal.
+**El primero, en el proyecto de P1**, sirvió para encontrar dos fallos que ninguna prueba local podía revelar, porque en desarrollo no existe el salto de Hosting ni un origen de navegador distinto del propio backend: la URL de la API horneada en el bundle del frontend (`VITE_API_BASE_URL` debía ser relativa) y `TRUST_PROXY_HOPS` corto para los saltos que agrega Hosting. Ambos corregidos y documentados. Sus datos, sin embargo, son de antes de arreglar la resolución de zona y el cooldown: 19 registros.
+
+**El segundo, en el proyecto de P3** (`bamboo-mercury-504617-g5`), es el que queda como demo, porque es el único que corre sobre la campaña completa y corregida de la Semana 2. Demo: [https://bamboo-mercury-504617-g5.web.app](https://bamboo-mercury-504617-g5.web.app).
+
+Que el despliegue se reprodujera en un proyecto limpio siguiendo solo el runbook es, de paso, la comprobación de que ese documento sirve: los dos únicos huecos que aparecieron fueron el recorrido de consola hasta Secret Manager y la estructura del documento de whitelist, ya incorporados.
+
+Pendiente: agregar a la whitelist las direcciones de P1, P2 y P4 y la del aula antes de la demo en vivo; decisión documentada sobre Cloud Armor (P3-10); tag de versión semanal.
 
 ## P4. Frontend y documentación
 
@@ -204,6 +210,18 @@ Entregables:
 | P4-12 | Preparar la presentación de 20 minutos                 | Recorre el problema, la arquitectura, la demo en vivo y las decisiones discutidas                                                       |
 
 Coordinación: trabaja contra el contrato congelado en la semana 1 y usa datos de prueba en el emulador mientras P1 termina la sincronización.
+
+### Traspaso pendiente a P4
+
+Cuatro cambios sobre la interfaz salieron de usarla contra datos y despliegue reales. Están aplicados; conviene que P4 los conozca porque afectan a decisiones suyas.
+
+**Un filtro que se vaciaba seguía aplicándose.** `usePlaces.search` fundía la consulta nueva con la anterior. Como el formulario omite la clave del filtro que está vacío en lugar de enviarla en blanco, la clave ausente dejaba viva la del envío previo: borrar la zona y pulsar Buscar seguía devolviendo la zona anterior, y **Limpiar** vaciaba el formulario sin cambiar los resultados. Corregido reemplazando la consulta entera, que es la semántica correcta: el formulario envía siempre su estado completo. Con prueba de regresión en `apps/frontend/tests/usePlaces.test.ts`, verificada contra el código defectuoso.
+
+**El esqueleto de carga sustituía la tabla entera**, de modo que la cabecera y la barra de paginación desaparecían en cada búsqueda y parecía una recarga. Ahora solo cambia el cuerpo, con tantas filas como resultados se esperan según `pageSize`. El efecto lateral que se buscaba es que el contenedor deje de cambiar de altura al llegar los datos: ese salto provocaba scroll, y el scroll cierra los desplegables nativos, lo que explicaba que un selector abierto se cerrara solo.
+
+**El aviso de cobertura se retiró de la interfaz** por decisión del equipo. La advertencia sigue en la documentación y en la postura ética, pero deja de estar donde el usuario final la ve.
+
+**La UI desplegada no lee ningún archivo de entorno.** Los valores de `apps/frontend/src/config/env.ts` son a la vez el respaldo y la configuración de producción; cambiar uno cambia lo que se publica. El detalle está en [development-setup.md](development-setup.md#cómo-se-configura-el-sitio-desplegado).
 
 ## Estándares del equipo
 
@@ -286,20 +304,20 @@ Una tarea se considera terminada cuando cumple todo lo siguiente:
 
 ## Pendientes de definición
 
-| Pendiente                                                                                                                                                                                  | Responsable de proponer | Fecha límite                    |
-| :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :------------------------------ |
-| ~~Precio real del SKU Enterprise de Text Search~~ **Resuelto**: 35.00 USD por 1,000 llamadas, con 1,000 gratuitas al mes                                                                   | P3                      | Semana 1                        |
-| ~~Valor de la cuota diaria de Places API~~ **Resuelto**: 200 por día y 60 por minuto sobre `SearchTextRequest`                                                                             | P3                      | Semana 1                        |
-| ~~Vía de edición de la whitelist~~ **Resuelto**: documento de Firestore editable desde la consola, sin endpoint                                                                            | P3                      | Semana 1                        |
-| ~~Prueba de forma agentiva contra disciplina~~ **Resuelta**: el agentivo aporta un 15% de registros exclusivos y se recupera                                                               | P1                      | Semana 2                        |
-| ~~Prueba de diacríticos~~ **Resuelta**: 95% de coincidencia, el eje ortográfico se elimina                                                                                                 | P1                      | Semana 2                        |
-| ~~Verificar el agentivo en las nueve especialidades restantes~~ **Resuelto**: las diez lo conservan                                                                                        | P1                      | Semana 2                        |
-| ~~Si `ortopedia` aporta algo frente a `ortopedista`~~ **Resuelto**: aporta 2 exclusivos, se conserva                                                                                       | P3, como coordinador    | Semana 2                        |
-| ~~Si `medico general` se acota o se asume el ruido~~ **Resuelto**: se descarta la forma agentiva por precisión                                                                             | P3, como coordinador    | Semana 2                        |
-| ~~Tabla de variantes por especialidad, validada~~ **Resuelta**: verificada con datos en las diez                                                                                           | P1 y P4                 | Semana 2                        |
-| ~~Presupuesto de la corrida completa~~ **Aprobado**: 18.90 USD, 6.3% del crédito                                                                                                           | P3, como coordinador    | Semana 2                        |
-| ~~Script de campaña que recorra el catálogo~~ **Hecho**: `apps/backend/scripts/runCampaign.mjs`, con progreso reanudable, 25 sincronizaciones por minuto y corte tras tres fallos seguidos | P3                      | Semana 2                        |
-| Rehacer la medición de cobertura por especialidad, que se hizo sobre datos con la zona y el cooldown defectuosos                                                                           | P1                      | Semana 3                        |
-| Corregir la búsqueda por prefijo si el equipo decidiera recuperar el filtro de texto                                                                                                       | P2                      | Solo si se revierte la decisión |
-| Valores de `PLACE_TTL`, `PLACE_RETENTION` y `SYNC_COOLDOWN` para demo                                                                                                                      | P2 y P3                 | Semana 3                        |
-| Adopción o descarte de Cloud Armor                                                                                                                                                         | P3                      | Semana 3                        |
+| Pendiente                                                                                                                                                                                         | Responsable de proponer | Fecha límite |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------- | :----------- |
+| ~~Precio real del SKU Enterprise de Text Search~~ **Resuelto**: 35.00 USD por 1,000 llamadas, con 1,000 gratuitas al mes                                                                          | P3                      | Semana 1     |
+| ~~Valor de la cuota diaria de Places API~~ **Resuelto**: 200 por día y 60 por minuto sobre `SearchTextRequest`                                                                                    | P3                      | Semana 1     |
+| ~~Vía de edición de la whitelist~~ **Resuelto**: documento de Firestore editable desde la consola, sin endpoint                                                                                   | P3                      | Semana 1     |
+| ~~Prueba de forma agentiva contra disciplina~~ **Resuelta**: el agentivo aporta un 15% de registros exclusivos y se recupera                                                                      | P1                      | Semana 2     |
+| ~~Prueba de diacríticos~~ **Resuelta**: 95% de coincidencia, el eje ortográfico se elimina                                                                                                        | P1                      | Semana 2     |
+| ~~Verificar el agentivo en las nueve especialidades restantes~~ **Resuelto**: las diez lo conservan                                                                                               | P1                      | Semana 2     |
+| ~~Si `ortopedia` aporta algo frente a `ortopedista`~~ **Resuelto**: aporta 2 exclusivos, se conserva                                                                                              | P3, como coordinador    | Semana 2     |
+| ~~Si `medico general` se acota o se asume el ruido~~ **Resuelto**: se descarta la forma agentiva por precisión                                                                                    | P3, como coordinador    | Semana 2     |
+| ~~Tabla de variantes por especialidad, validada~~ **Resuelta**: verificada con datos en las diez                                                                                                  | P1 y P4                 | Semana 2     |
+| ~~Presupuesto de la corrida completa~~ **Aprobado**: 18.90 USD, 6.3% del crédito                                                                                                                  | P3, como coordinador    | Semana 2     |
+| ~~Script de campaña que recorra el catálogo~~ **Hecho**: `apps/backend/scripts/runCampaign.mjs`, con progreso reanudable, 25 sincronizaciones por minuto y corte tras tres fallos seguidos        | P3                      | Semana 2     |
+| Rehacer la medición de cobertura por especialidad, que se hizo sobre datos con la zona y el cooldown defectuosos                                                                                  | P1                      | Semana 3     |
+| ~~Corregir la búsqueda por prefijo si el equipo decidiera recuperar el filtro de texto~~ **Cerrado**: P2 descarta recuperarlo, no hay tiempo en el curso y el catálogo cerrado cubre el requisito | P2                      | Semana 3     |
+| Valores de `PLACE_TTL`, `PLACE_RETENTION` y `SYNC_COOLDOWN` para demo                                                                                                                             | P2 y P3                 | Semana 3     |
+| Adopción o descarte de Cloud Armor                                                                                                                                                                | P3                      | Semana 3     |

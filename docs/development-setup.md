@@ -184,11 +184,79 @@ docs/               documentación del proyecto
 
 ### Variables de entorno
 
-Un solo archivo `.env` en la raíz sirve al backend, al frontend y a Docker. Toda variable existe documentada en `.env.example` y ambos archivos se mantienen sincronizados.
+**Ningún archivo de entorno interviene en el despliegue.** La regla es absoluta y por eso el `.gitignore` puede ignorar `.env*` sin excepciones: si hubiera una, dependería de que cada persona recordara cuál es, y basta un descuido para versionar un secreto.
+
+| Dónde                             | ¿Se versiona? | Qué configura                                    |
+| :-------------------------------- | :------------ | :----------------------------------------------- |
+| `.env.example`                    | Sí            | Plantilla de la que sale `.env`                  |
+| `.env`                            | **No**        | Una máquina de desarrollo                        |
+| `apps/backend/functions.env`      | Sí            | La Cloud Function desplegada                     |
+| `apps/frontend/src/config/env.ts` | Sí            | El sitio desplegado, por sus valores por defecto |
+
+Lo que se despliega toma su configuración de **código versionado**, al lado del código que la usa, de modo que el resultado de un despliegue no dependa de qué tenga en su archivo quien lo ejecute. Ninguno de los dos puede contener secretos: la key de Google llega a la función desde Secret Manager, y el frontend no maneja ninguno.
+
+En desarrollo, en cambio, un solo `.env` sirve al backend, al frontend y a Docker. Toda variable existe documentada en `.env.example` y ambos archivos se mantienen sincronizados.
 
 - El backend valida las variables al arrancar con un esquema Zod en `apps/backend/src/config/env.ts`. Si falta algo o está mal formado, el proceso falla ahí y no a mitad de una petición.
 - El frontend solo recibe las variables con prefijo `VITE_`, que quedan expuestas en el bundle: nunca se pone un secreto ahí.
 - Los puertos se cambian en un único lugar y los toman tanto los procesos locales como los contenedores.
+
+#### Convivir con otro proyecto en la misma máquina
+
+Es el caso más común de choque: otro repositorio ya usa el 5173 o el 4000. Todo se resuelve en el `.env`, sin tocar código:
+
+| Variable               | Qué evita                                                    |
+| :--------------------- | :----------------------------------------------------------- |
+| `FRONTEND_PORT`        | Que Vite falle al arrancar. Con `strictPort` no salta a otro |
+| `BACKEND_PORT`         | Que el backend choque con otra API local                     |
+| `CORS_ALLOWED_ORIGINS` | El único sitio donde el puerto aparece dentro de otro valor  |
+| `COMPOSE_PROJECT_NAME` | Que dos proyectos compartan contenedores, red y volúmenes    |
+
+`COMPOSE_PROJECT_NAME` es el que se olvida. De él se derivan los nombres de contenedor, la red y los volúmenes, así que dos repositorios con el mismo valor no levantan dos entornos: se pisan el mismo.
+
+El proxy de Vite lee `BACKEND_PORT` del mismo archivo, de modo que cambiar el puerto del backend no obliga a tocar nada más. Y conviene evitar 6000, 6666 y 10080: Chrome los bloquea y el navegador responde `ERR_UNSAFE_PORT` sin que el servidor llegue a enterarse.
+
+#### Cómo se configura el sitio desplegado
+
+`vite.config.ts` apunta `envDir` a la raíz del monorepo **solo en desarrollo**. Al construir, lo apunta a `apps/frontend`, donde no hay ningún archivo de entorno: el build no encuentra variables que leer y cada opción cae en el valor por defecto declarado en `apps/frontend/src/config/env.ts`. Esos valores por defecto **son** la configuración de producción, no un respaldo para cuando algo falta.
+
+De ahí que no exista un `.env.production`: el archivo sobra, y versionarlo obligaría a abrir una excepción en el `.gitignore`.
+
+#### Cómo se configura la función desplegada
+
+`apps/backend/functions.env` sigue el criterio contrario, y por una razón: es el único sitio donde se lee qué hace la función en producción. Declara cada valor **aunque coincida con el que trae el esquema**, para que se entienda completo sin abrir el código.
+
+Siete variables quedan fuera a propósito, y el propio archivo explica cada una. Las dos que más cuesta ver:
+
+- **`BACKEND_PORT` no tiene efecto.** La función desplegada no abre un socket: Cloud Run recibe la petición y se la entrega al handler. Declarar un puerto que nadie escucha confunde más de lo que documenta.
+- **`API_BASE_PATH` se deriva del contrato.** Fijarlo aquí permitiría subir `API_VERSION` en `@msd/contracts` y que la UI llamara a una ruta que la función ya no sirve, sin que nada avisara hasta la primera petición.
+
+Las otras cinco son secretas (`GOOGLE_MAPS_API_KEY`), las provee el runtime (`FIREBASE_PROJECT_ID`) o anularían un mecanismo deliberado: `IP_WHITELIST` tiene prioridad sobre el documento de Firestore, y `FIRESTORE_EMULATOR_HOST` o `GOOGLE_APPLICATION_CREDENTIALS` desviarían a la función hacia un emulador inexistente o hacia una credencial de archivo en lugar de su propia identidad.
+
+El esquema funciona porque **hoy ningún valor de producción difiere del de desarrollo**, y eso no es casualidad. `VITE_API_BASE_URL=/api/v1` no es el valor de un entorno ni del otro: es el correcto en los dos, porque en desarrollo lo resuelve el proxy de Vite y en despliegue el rewrite `/api/**` de `firebase.json`. Y `/api/v1` no está escrito a mano: sale de `API_BASE_PATH` en `@msd/contracts`, de modo que si la API pasara a `/api/v2` bastaría cambiarlo en el contrato y backend y frontend se moverían juntos.
+
+#### Si algún día un valor sí tiene que diferir
+
+El sitio es el `predeploy` del bloque `hosting` en `firebase.json`, donde la variable se pasa por el entorno del proceso; Vite las atiende con independencia del `envDir`:
+
+```json
+"predeploy": [
+  "pnpm run --filter @msd/contracts build",
+  "VITE_API_BASE_URL=https://api.ejemplo.com/v1 pnpm run --filter @msd/frontend build"
+]
+```
+
+Queda versionado, junto a la definición del despliegue, y sin ser un archivo de entorno. El mismo mecanismo sirve para un build puntual desde la terminal:
+
+```bash
+VITE_API_BASE_URL=https://otro-dominio/api/v1 pnpm run --filter @msd/frontend build
+```
+
+Esa sintaxis es POSIX. El `predeploy` corre dentro del contenedor `hermes`, que es Linux, así que no hay problema; desplegando con `npx firebase-tools` desde PowerShell habría que ajustarla.
+
+Si llegaran a ser varios los valores que difieren, la vía siguiente **no** es volver a un `.env.production`, sino un módulo TypeScript de configuración que `vite.config.ts` importe según el modo: versionado, tipado y sin que su nombre invite a nadie a pegar un secreto dentro. Mientras solo se trate de uno o dos, la variable en el `predeploy` es más simple y se ve en el mismo diff que el despliegue.
+
+Todo esto corrige de raíz los dos fallos de despliegue que venían de la misma familia: el artefacto heredaba algo del `.env` de quien lo construía. El detalle de cada uno está en [design.md](design.md#evidencia-de-despliegue).
 
 ### Selección de adaptadores
 
@@ -240,11 +308,11 @@ En el backend los imports internos llevan extensión `.js` porque el proyecto se
 | Backend    | nodemon con `tsx` | Observa `src` y el `dist` del contrato; usa polling para funcionar sobre volúmenes montados       |
 | Frontend   | Vite              | `server.watch.usePolling` se controla con `WATCH_USE_POLLING`, necesario en WSL2 y Docker Desktop |
 
-Vite trae un proxy que reenvía `/api` al backend, pero **solo interviene si `VITE_API_BASE_URL` es una ruta relativa**. El valor por defecto es absoluto (`http://localhost:4000/api/v1`), de modo que el navegador llama al backend directamente y CORS sí aplica.
+Vite trae un proxy que reenvía `/api` al backend, pero **solo interviene si `VITE_API_BASE_URL` es una ruta relativa**, que es el valor de `.env.example`. Con una URL absoluta el navegador llama al backend directamente y CORS sí aplica.
 
-Eso importa al cambiar de puerto. Si se modifica `FRONTEND_PORT` hay que actualizar también `CORS_ALLOWED_ORIGINS`, porque el backend rechaza cualquier origen que no figure ahí. El síntoma es desconcertante: la petición aparece en el navegador con estado `200` y aun así la interfaz muestra un error, porque el servidor respondió pero el navegador bloqueó la respuesta antes de entregarla al JavaScript.
+Eso importa al cambiar de puerto. Si se pone una URL absoluta y se modifica `FRONTEND_PORT`, hay que actualizar también `CORS_ALLOWED_ORIGINS`, porque el backend rechaza cualquier origen que no figure ahí. El síntoma es desconcertante: la petición aparece en el navegador con estado `200` y aun así la interfaz muestra un error, porque el servidor respondió pero el navegador bloqueó la respuesta antes de entregarla al JavaScript.
 
-Poner `VITE_API_BASE_URL=/api/v1` evita el problema de raíz: las peticiones salen del mismo origen que la página y CORS no entra en juego.
+La ruta relativa evita el problema de raíz: las peticiones salen del mismo origen que la página y CORS no entra en juego.
 
 ## Internacionalización
 

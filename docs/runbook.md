@@ -195,17 +195,154 @@ Responde `Hello World` con `200`. Captura como `docs/images/hello-world-deploy.p
 
 ## Fase 7: desplegar la API completa
 
-Requiere los Pasos 6 y 7 de [credentials-setup.md](credentials-setup.md): el documento `config/ipWhitelist` en Firestore y la segunda API key, la que no lleva restricción de IP.
+Entregable de la Semana 3. Son seis pasos y el orden entre ellos no es indiferente: el despliegue de la función concede a su cuenta de servicio el permiso de lectura sobre el secreto, así que el secreto tiene que existir antes.
+
+### 1. Segunda API key
+
+Paso 7 de [credentials-setup.md](credentials-setup.md). La key de desarrollo está restringida a una IP y la función sale a internet por un rango dinámico de Cloud Run, de modo que esa restricción la bloquearía.
+
+Sin restricción de aplicación, y con restricción de API a **Places API (New)** y nada más. La lista de APIs aparece con todas marcadas porque habilitar Places desde Maps Platform enciende el paquete completo de Maps: hay que desmarcarlas y dejar una. El campo debe terminar diciendo `1 API`.
+
+Captura: la lista de credenciales con las dos keys y su columna de restricciones, recortada antes del valor de la clave. `docs/images/deploy-api-key.png`.
+
+### 2. La key en Secret Manager
 
 ```bash
 docker compose --profile tools run --rm hermes functions:secrets:set GOOGLE_MAPS_API_KEY
+```
+
+Pide el valor por consola y **no lo enmascara**: no capturar esa pantalla. Termina con `Created a new secret version .../versions/1`.
+
+Captura: menú **Seguridad**, **Secret Manager**, el secreto, pestaña **Versiones**. `docs/images/secret-manager-version.png`.
+
+### 3. El documento `config/ipWhitelist`
+
+Paso 6 de [credentials-setup.md](credentials-setup.md), con la estructura exacta y los dos enlaces "Agregar campo" que se confunden.
+
+Sin este documento la función responde `403` a toda petición: la lista vacía cierra el paso, que es el comportamiento correcto pero da la impresión de un despliegue roto.
+
+La IPv4 va con máscara `/32` y la IPv6 como prefijo `/64`, porque el sufijo lo rota el sistema operativo por privacidad y una entrada exacta caduca en horas.
+
+Captura: la vista de datos con el documento expandido. `docs/images/firestore-ip-whitelist.png`.
+
+### 4. La URL de la API en el bundle
+
+**No hay nada que preparar.** El build de producción no lee ningún archivo de entorno: `vite.config.ts` apunta `envDir` fuera de la raíz al construir, y los valores salen de `apps/frontend/src/config/env.ts`. Se anota aquí porque durante un tiempo sí dependía del `.env`, y de ahí salieron dos fallos: una URL de `localhost` horneada en el bundle y React empaquetado en modo desarrollo.
+
+Comprobación rápida tras construir, si se quiere:
+
+```bash
+grep -c localhost apps/frontend/dist/assets/*.js    # 0
+```
+
+### 5. Desplegar
+
+```bash
 docker compose --profile tools run --rm hermes deploy --only functions
 docker compose --profile tools run --rm hermes deploy --only hosting
 ```
 
-El valor del secreto es el de la key del despliegue, no el de la de desarrollo.
+Entre tres y ocho minutos el primero. Por el camino aparecen los logs de arranque del backend con la configuración de producción: el CLI importa el módulo para descubrir las funciones exportadas antes de subirlo, no es que esté corriendo.
 
-Sin el documento `config/ipWhitelist`, la función responde `403` a toda petición: la lista vacía cierra el paso, que es el comportamiento correcto pero da la impresión de un despliegue roto.
+### 6. Verificar
+
+```bash
+curl -s -w '\nHTTP %{http_code}\n' 'https://<proyecto>.web.app/api/v1/places?specialty=cardiology&zone=10'
+```
+
+Responde `200` desde una IP de la whitelist y `403` con `ip_not_allowed` desde cualquier otra.
+
+Capturas: la UI con filtros y resultados reales, y la paginación construida a partir de `meta.pagination`.
+
+Qué obliga a repetir este despliegue y qué no está en [Qué exige volver a desplegar](#qué-exige-volver-a-desplegar).
+
+## Redesplegar desde otra máquina
+
+Ningún archivo `.env` interviene: la función toma su configuración de `apps/backend/functions.env`, que está versionado, y el build del frontend no lee archivos de entorno. La API key tampoco hace falta en la máquina, porque vive en Secret Manager y el artefacto que se sube no la contiene — comprobable buscando `AIza` dentro de `apps/backend/.deploy/` después de empaquetar.
+
+Lo que sí hay que rehacer son dos cosas que no viajan en el repositorio, porque son de cada equipo:
+
+```bash
+pnpm install                                                        # en el sistema operativo que se vaya a usar
+docker compose --profile tools build hermes
+docker compose --profile tools run --rm hermes login --no-localhost # la sesion vive en un volumen local
+docker compose --profile tools run --rm hermes use <proyecto>       # .firebaserc esta ignorado
+docker compose --profile tools run --rm hermes projects:list        # verifica cuenta y proyecto
+```
+
+`projects:list` importa: si el proyecto no aparece como `(current)`, el despliegue iría a otro sitio o fallaría, y ninguna de las dos cosas se nota hasta que ya está en marcha.
+
+A partir de ahí, los dos comandos de la Fase 7 bastan.
+
+El `.env` sigue haciendo falta para todo lo demás: desarrollar en local, ejecutar la campaña, y reproducir la evidencia de la whitelist. No para desplegar.
+
+## Agregar una especialidad al catálogo
+
+El escenario más caro y el que más pasos encadena, porque toca código, gasta dinero y termina en un despliegue. Editar el `.env` no basta: el catálogo vive en `packages/contracts` y se compila dentro de los dos artefactos, así que **una especialidad nueva exige volver a desplegar función y Hosting**. Sin eso, la API responde `422` con `specialty_not_supported` y la UI ni siquiera la ofrece en el desplegable.
+
+### 1. Declararla
+
+En `packages/contracts/src/specialty.ts`, la clave en `SUPPORTED_SPECIALTIES` y sus variantes en `SPECIALTY_KEYWORD_VARIANTS`. Los criterios para elegir variantes están en [design.md](design.md#estrategia-de-keywords): no es una lista libre, cada eje se justificó con datos.
+
+La etiqueta visible no va ahí sino en los diccionarios, como `specialty_<clave>` en `apps/frontend/src/i18n/es.json` y `en.json`. Falta una y la UI muestra la clave cruda.
+
+```bash
+pnpm run --filter @msd/contracts build
+pnpm check
+```
+
+El `build` no es opcional: el script de campaña lee el catálogo del contrato **compilado**, a propósito, para que un script que gasta dinero no trabaje nunca sobre una lista desfasada.
+
+### 2. Estimar el costo
+
+```bash
+cd apps/backend
+node scripts/runCampaign.mjs --specialty=<clave>
+```
+
+Sin `--run` no llama a nada: enumera las combinaciones y estima. Son `variantes × 22 zonas` sincronizaciones y cada una consume **dos llamadas facturables**, a 0.035 USD cada una pasado el umbral gratuito mensual. Tres variantes salen por unos 4.60 USD.
+
+No hace falta `--reset`: el progreso se guarda por combinación de especialidad, zona y keyword, de modo que las de la especialidad nueva no figuran y las viejas no se repiten.
+
+### 3. Subir la cuota
+
+En la consola, la cuota diaria de Places API de 200 a 2,000. Con 200 la campaña se corta a mitad. **Volver a bajarla al terminar** es parte del procedimiento, no una recomendación: la cuota es el único techo que queda si la key se filtra.
+
+### 4. Ejecutar
+
+Contra el backend local apuntando a Firestore real, como en la Fase 5 (`PERSISTENCE_DRIVER=firestore`, `PLACES_PROVIDER_DRIVER=google`, service account). La campaña no llama a Google directamente: pasa por el caso de uso, que es quien pagina, aplica el tope y persiste.
+
+```bash
+pnpm dev:backend                                        # en otra terminal
+node scripts/runCampaign.mjs --run --specialty=<clave>
+```
+
+Va a 25 sincronizaciones por minuto y aborta tras tres fallos seguidos en vez de seguir gastando.
+
+### 5. Devolver el entorno y desplegar
+
+Bajar la cuota, devolver el `.env` a `mock` y `memory`, y desplegar:
+
+```bash
+docker compose --profile tools run --rm hermes deploy --only functions
+docker compose --profile tools run --rm hermes deploy --only hosting
+```
+
+Hosting también, no solo la función: el desplegable de especialidades del frontend se construye del mismo catálogo.
+
+## Qué exige volver a desplegar
+
+| Cambio                                   | Redespliegue                        |
+| :--------------------------------------- | :---------------------------------- |
+| Agregar o quitar una IP de la whitelist  | No, la caché expira en 60 s         |
+| Datos nuevos en Firestore                | No, la API los lee en cada consulta |
+| El `.env` de la raíz                     | No, solo afecta al entorno local    |
+| Rotar la key en Secret Manager           | Sí, solo la función                 |
+| Un valor de `apps/backend/functions.env` | Sí, solo la función                 |
+| El catálogo de especialidades o zonas    | Sí, función **y** Hosting           |
+| Cualquier otro cambio de código          | Sí, lo que corresponda              |
+
+La distinción de fondo: lo que es **configuración de ejecución** se lee en caliente y lo que queda **compilado dentro del artefacto** no. Poblar datos nuevos entra en la primera categoría y por eso no obliga a nada; el catálogo entra en la segunda porque de él se deriva el tipo `Specialty` que verifican backend y frontend en tiempo de compilación.
 
 ## Pruebas de integración
 

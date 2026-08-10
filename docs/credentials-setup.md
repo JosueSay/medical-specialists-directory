@@ -307,6 +307,30 @@ Valen las mismas direcciones que se registraron en la API key, y con el mismo cr
 
 Una entrada mal formada no rompe el arranque: se descarta con un aviso en el log y las demás siguen valiendo. Si la fuente entera falla, el sistema **cierra el paso** en vez de abrirlo.
 
+El código también acepta entradas como texto plano (`"203.0.113.10/32"` a secas). Se usa el mapa porque en la whitelist de la demo conviven las direcciones de los cuatro integrantes y la del aula, y sin etiqueta no hay forma de saber cuál sobra al terminar.
+
+#### Crearlo en la consola
+
+En el diálogo de **Iniciar colección** hay dos enlaces **Agregar campo** que se parecen. El indentado bajo el elemento agrega otro elemento al array, que es lo que se busca; el alineado con `allowed` agregaría otro campo al documento.
+
+| Nivel        | Campo     | Tipo     | Valor               |
+| :----------- | :-------- | :------- | :------------------ |
+| Documento    | `allowed` | `array`  | —                   |
+| Elemento `0` | —         | `map`    | —                   |
+| Dentro del 0 | `cidr`    | `string` | `203.0.113.10/32`   |
+| Dentro del 0 | `label`   | `string` | `p3 casa ipv4`      |
+| Elemento `1` | —         | `map`    | —                   |
+| Dentro del 1 | `cidr`    | `string` | `2001:db8:1:2::/64` |
+| Dentro del 1 | `label`   | `string` | `p3 casa ipv6`      |
+
+#### Agregar una IP más adelante
+
+**No requiere volver a desplegar**, y esa es toda la razón por la que la lista vive aquí. En la consola de Firestore, documento `config/ipWhitelist`, botón `+` sobre el array `allowed`, elemento nuevo de tipo `map` con sus dos campos. La caché de 60 segundos hace que aplique en menos de un minuto.
+
+Lo que sí exige redesplegar es cualquier otra cosa: rotar el secreto, cambiar un valor de `apps/backend/functions.env` o tocar el código.
+
+Antes de una demostración en vivo hay que agregar la dirección del lugar desde donde se va a presentar. Es la causa más probable de un `403` el día de la entrega, y no se parece en nada a un fallo de whitelist: la UI simplemente muestra el error de permisos como si el despliegue estuviera roto.
+
 ## Paso 7: segunda API key para el despliegue
 
 La key del Paso 4 sirve para desarrollo, pero no para la función desplegada: Cloud Run sale a internet por un rango dinámico y la restricción por IP la bloquearía. Hace falta una segunda.
@@ -388,7 +412,13 @@ La función desplegada no lee `.env` para los secretos. La key se guarda en Secr
 docker compose --profile tools run --rm hermes functions:secrets:set GOOGLE_MAPS_API_KEY
 ```
 
-El valor que se pasa aquí es el de la **key del Paso 7**, la del despliegue, no la de desarrollo. El comando lo pide por entrada estándar y crea la versión del secreto; la primera ejecución habilita Secret Manager en el proyecto si aún no lo estaba, sin necesidad de activarlo a mano en la consola.
+El valor que se pasa aquí es el de la **key del Paso 7**, la del despliegue, no la de desarrollo. El comando lo pide por entrada estándar y crea la versión del secreto; la primera ejecución habilita Secret Manager en el proyecto si aún no lo estaba, sin necesidad de activarlo a mano en la consola. Al escribirlo **el valor se ve en la terminal**, porque el CLI no lo enmascara: conviene no capturar esa pantalla.
+
+Termina con `Created a new secret version .../secrets/GOOGLE_MAPS_API_KEY/versions/1`. Para comprobarlo en la consola: menú de navegación, **Seguridad**, y en el submenú lateral **Secret Manager**. La ruta despista, porque esa misma sección abre por defecto en Security Command Center, que exige pertenecer a una organización y muestra un error rojo; Secret Manager no tiene nada que ver con eso y funciona en un proyecto suelto. El enlace directo evita el rodeo: `https://console.cloud.google.com/security/secret-manager`.
+
+Dentro del secreto, la pestaña **Versiones** muestra la versión 1 como _Habilitada_. La consola no ofrece ver el valor desde ahí, y esa ausencia es justamente lo que se documenta.
+
+La etiqueta `firebase-managed: functions` que aparece en la lista la pone el propio CLI: marca el secreto como gestionado por Firebase, y es lo que hace que el despliegue conceda automáticamente el permiso de lectura a la cuenta de servicio de la función.
 
 El resto de la configuración de la función vive en `apps/backend/functions.env`, que **sí se versiona** porque no contiene secretos. `FIREBASE_PROJECT_ID` no aparece ahí: lo provee el propio runtime.
 
@@ -489,15 +519,17 @@ El efecto conjunto de las 1,000 llamadas libres mensuales y los 300 USD de la pr
 
 Las capturas se guardan en `docs/images/` y se enlazan desde [design.md](design.md#evidencia-de-configuración).
 
-| Evidencia                                           | Archivo                          | De qué paso         |
-| :-------------------------------------------------- | :------------------------------- | :------------------ |
-| Presupuesto con sus tres umbrales y el proyecto     | `images/billing-budget.png`      | Paso 5              |
-| Crédito de la prueba gratuita, saldo y vencimiento  | `images/billing-credits.png`     | Paso 1              |
-| Cuotas de Places API, por día y por minuto          | `images/places-api-quota.png`    | Paso 5              |
-| Restricción de la API key                           | `images/api-key-restriction.png` | Paso 4              |
-| Whitelist dejando pasar una IP autorizada           | `images/ip-whitelist-200.png`    | Fuera de la consola |
-| Whitelist rechazando una IP no autorizada con `403` | `images/ip-whitelist-403.png`    | Fuera de la consola |
-| Función `hello world` desplegada y respondiendo     | `images/hello-world-deploy.png`  | Despliegue          |
+| Evidencia                                           | Archivo                             | De qué paso         |
+| :-------------------------------------------------- | :---------------------------------- | :------------------ |
+| Presupuesto con sus tres umbrales y el proyecto     | `images/billing-budget.png`         | Paso 5              |
+| Crédito de la prueba gratuita, saldo y vencimiento  | `images/billing-credits.png`        | Paso 1              |
+| Cuotas de Places API, por día y por minuto          | `images/places-api-quota.png`       | Paso 5              |
+| Restricción de la API key                           | `images/api-key-restriction.png`    | Paso 4              |
+| Whitelist dejando pasar una IP autorizada           | `images/ip-whitelist-200.png`       | Fuera de la consola |
+| Whitelist rechazando una IP no autorizada con `403` | `images/ip-whitelist-403.png`       | Fuera de la consola |
+| Función `hello world` desplegada y respondiendo     | `images/hello-world-deploy.png`     | Despliegue          |
+| Las dos API keys y sus restricciones                | `images/deploy-api-key.png`         | Pasos 4 y 7         |
+| Versión del secreto en Secret Manager               | `images/secret-manager-version.png` | Despliegue          |
 
 Para el presupuesto, la captura útil no es la del formulario sino la de la **lista de presupuestos**: en una sola imagen muestra el nombre, el proyecto al que se aplica, los tres umbrales, el consumo acumulado y si se descontaron créditos. Las alertas del 50% y del 90% son dos umbrales de un mismo presupuesto, no dos presupuestos, así que esa imagen acredita ambas.
 
