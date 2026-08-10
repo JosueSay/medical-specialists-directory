@@ -110,6 +110,51 @@ describe('ImportPlacesUseCase', () => {
     expect(repository.listImportRuns()).toHaveLength(2);
   });
 
+  it('deja pasar una sola de dos sincronizaciones identicas simultaneas', async () => {
+    const { repository, useCase } = buildUseCase({ totalAvailable: 15, cooldownMinutes: 30 });
+
+    // El caso que el planteamiento anterior no cubria: leia la ultima corrida y
+    // decidia, pero el registro solo se escribia al terminar, de modo que entre
+    // esa lectura y esa escritura cabia una peticion identica y las dos
+    // llamaban a Google. Ahora el turno se toma antes de la primera llamada.
+    const results = await Promise.allSettled([
+      useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' }),
+      useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' }),
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(repository.listImportRuns()).toHaveLength(1);
+  });
+
+  it('mantiene el turno tomado aunque la sincronizacion falle a mitad', async () => {
+    const repository = new InMemoryPlacesRepository();
+    const useCase = new ImportPlacesUseCase({
+      provider: {
+        fetchPage: () => Promise.reject(AppError.providerUnavailable('Google no respondio')),
+      },
+      repository,
+      pageSize: 10,
+      maxResults: 20,
+      cooldownMinutes: 30,
+      freshness: new FreshnessPolicy({ ttlMinutes: 30, retentionHours: 24 }),
+      generateImportId: () => 'imp_test',
+    });
+
+    await expect(
+      useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' }),
+    ).rejects.toThrow();
+
+    // Un fallo del proveedor no debe abrir la puerta a reintentos inmediatos:
+    // si Google respondio con error una vez, insistir de golpe gasta cuota sin
+    // motivo. El turno se libera cuando vence el cooldown, como cualquier otro.
+    await expect(
+      useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.PLACE_IMPORT_COOLDOWN_ACTIVE });
+
+    expect(repository.listImportRuns()).toHaveLength(0);
+  });
+
   it('purga los registros que superaron la retencion antes de escribir', async () => {
     const expired: Place = {
       placeId: 'expired_001',

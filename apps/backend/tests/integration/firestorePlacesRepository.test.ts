@@ -27,6 +27,7 @@ type FirestoreClient = Awaited<ReturnType<typeof getFirestoreClient>>;
 
 const PLACES_COLLECTION = 'places';
 const IMPORT_RUNS_COLLECTION = 'importRuns';
+const IMPORT_SLOTS_COLLECTION = 'importSlots';
 
 function buildPlace(overrides: Partial<Place> = {}): Place {
   return {
@@ -90,6 +91,7 @@ describe('FirestorePlacesRepository contra el emulador', () => {
     repository = new FirestorePlacesRepository(db, {
       placesCollection: PLACES_COLLECTION,
       importRunsCollection: IMPORT_RUNS_COLLECTION,
+      importSlotsCollection: IMPORT_SLOTS_COLLECTION,
     });
   });
 
@@ -98,11 +100,13 @@ describe('FirestorePlacesRepository contra el emulador', () => {
   beforeEach(async () => {
     await clearCollection(db, PLACES_COLLECTION);
     await clearCollection(db, IMPORT_RUNS_COLLECTION);
+    await clearCollection(db, IMPORT_SLOTS_COLLECTION);
   });
 
   afterAll(async () => {
     await clearCollection(db, PLACES_COLLECTION);
     await clearCollection(db, IMPORT_RUNS_COLLECTION);
+    await clearCollection(db, IMPORT_SLOTS_COLLECTION);
   });
 
   describe('upsertMany', () => {
@@ -303,6 +307,81 @@ describe('FirestorePlacesRepository contra el emulador', () => {
       const run = await repository.findLastImportRun('cardiologo zona 10 Guatemala', '10');
 
       expect(run).toBeNull();
+    });
+  });
+
+  /**
+   * El cooldown se decide aqui, y es la parte que solo Firestore real puede
+   * comprobar: en memoria nada puede interponerse entre la lectura y la
+   * escritura, asi que un doble in-memory no distingue una implementacion
+   * atomica de una que no lo es.
+   */
+  describe('tryAcquireImportSlot', () => {
+    const KEYWORD = 'cardiologia zona 10 Guatemala';
+    const NOW = '2026-03-01T10:00:00.000Z';
+    const HELD_UNTIL = '2026-03-01T11:00:00.000Z';
+
+    it('concede el turno de una combinacion que nadie tiene tomada', async () => {
+      const denial = await repository.tryAcquireImportSlot(KEYWORD, '10', HELD_UNTIL, NOW);
+
+      expect(denial).toBeNull();
+    });
+
+    it('niega el segundo intento e informa hasta cuando sigue tomado', async () => {
+      await repository.tryAcquireImportSlot(KEYWORD, '10', HELD_UNTIL, NOW);
+
+      const denial = await repository.tryAcquireImportSlot(
+        KEYWORD,
+        '10',
+        '2026-03-01T11:05:00.000Z',
+        '2026-03-01T10:05:00.000Z',
+      );
+
+      expect(denial).toEqual({ heldUntil: HELD_UNTIL });
+    });
+
+    it('concede el turno de nuevo cuando el anterior ya vencio', async () => {
+      await repository.tryAcquireImportSlot(KEYWORD, '10', HELD_UNTIL, NOW);
+
+      const denial = await repository.tryAcquireImportSlot(
+        KEYWORD,
+        '10',
+        '2026-03-01T13:00:00.000Z',
+        '2026-03-01T12:00:00.000Z',
+      );
+
+      expect(denial).toBeNull();
+    });
+
+    it('no bloquea otra variante ni la misma keyword en otra zona', async () => {
+      await repository.tryAcquireImportSlot(KEYWORD, '10', HELD_UNTIL, NOW);
+
+      const otraVariante = await repository.tryAcquireImportSlot(
+        'cardiologo zona 10 Guatemala',
+        '10',
+        HELD_UNTIL,
+        NOW,
+      );
+      const otraZona = await repository.tryAcquireImportSlot(KEYWORD, '4', HELD_UNTIL, NOW);
+
+      expect(otraVariante).toBeNull();
+      expect(otraZona).toBeNull();
+    });
+
+    /**
+     * La razon de ser de la transaccion. Sin ella, dos peticiones identicas que
+     * lleguen a la vez leen ambas que no hay turno tomado y las dos pasan, con
+     * lo que se pagan dos veces las mismas llamadas a Google.
+     */
+    it('deja pasar solo a una de varias solicitudes simultaneas', async () => {
+      const attempts = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          repository.tryAcquireImportSlot(KEYWORD, '10', HELD_UNTIL, NOW),
+        ),
+      );
+
+      expect(attempts.filter((denial) => denial === null)).toHaveLength(1);
+      expect(attempts.filter((denial) => denial !== null)).toHaveLength(4);
     });
   });
 

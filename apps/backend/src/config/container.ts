@@ -95,6 +95,7 @@ async function buildRepository(): Promise<PlacesRepository> {
     return new FirestorePlacesRepository(db, {
       placesCollection: env.FIRESTORE_PLACES_COLLECTION,
       importRunsCollection: env.FIRESTORE_IMPORT_RUNS_COLLECTION,
+      importSlotsCollection: env.FIRESTORE_IMPORT_SLOTS_COLLECTION,
     });
   }
 

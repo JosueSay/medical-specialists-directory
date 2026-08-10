@@ -8,7 +8,7 @@ import {
 import type { ImportRun } from '@/domain/entities/place.js';
 import type { FreshnessPolicy } from '@/domain/freshnessPolicy.js';
 import type { PlacesProvider } from '@/domain/ports/placesProvider.js';
-import type { PlacesRepository } from '@/domain/ports/placesRepository.js';
+import type { ImportSlotDenial, PlacesRepository } from '@/domain/ports/placesRepository.js';
 import { AppError } from '@/shared/appError.js';
 import { logger } from '@/shared/logger.js';
 
@@ -84,8 +84,11 @@ export class ImportPlacesUseCase {
 
     const specialty: Specialty = input.specialty;
 
-    const recentRun = await this.findRunWithinCooldown(input.keyword, input.zone);
-    if (recentRun) {
+    // Tomar el turno es lo primero que toca la base y ocurre antes de cualquier
+    // llamada a Google: comprobar y reservar son una sola operacion atomica, de
+    // modo que dos peticiones identicas simultaneas no puedan pasar las dos.
+    const denial = await this.tryAcquireSlot(input.keyword, input.zone);
+    if (denial) {
       // No se llama a Google. Se responde con error y no con el resumen de la
       // corrida anterior: devolver 201 con datos de otra ejecucion hace que
       // quien llama no pueda distinguir una sincronizacion real de una omitida,
@@ -95,7 +98,7 @@ export class ImportPlacesUseCase {
         keyword: input.keyword,
         specialty,
         zone: input.zone,
-        lastRunFinishedAt: recentRun.finishedAt,
+        heldUntil: denial.heldUntil,
       });
       throw AppError.importCooldownActive();
     }
@@ -184,24 +187,29 @@ export class ImportPlacesUseCase {
   }
 
   /**
-   * Devuelve la ultima corrida si todavia esta dentro del cooldown.
+   * Reserva el turno de la combinacion durante el cooldown, o informa hasta
+   * cuando sigue tomado.
    *
-   * La clave es la keyword y no la especialidad. Cada variante de busqueda es
-   * una consulta distinta contra Google y devuelve registros distintos, de modo
-   * que agrupar por especialidad haria que la primera variante bloqueara a las
-   * demas durante todo el cooldown.
+   * La clave es la keyword y la zona, no la especialidad. Cada variante de
+   * busqueda es una consulta distinta contra Google y devuelve registros
+   * distintos, de modo que agrupar por especialidad haria que la primera
+   * variante bloqueara a las demas durante todo el cooldown.
+   *
+   * El turno se toma **antes** de llamar a Google, no despues de terminar. Esa
+   * era la ventana del planteamiento anterior, que leia la ultima corrida y
+   * decidia: entre esa lectura y la escritura del registro final cabia una
+   * peticion identica, y las dos pasaban porque ninguna veia la marca de la
+   * otra. El plazo se cuenta desde ahora, de modo que una corrida que falle a
+   * mitad tampoco deja la combinacion abierta a reintentos inmediatos.
    */
-  private async findRunWithinCooldown(keyword: string, zone: string): Promise<ImportRun | null> {
+  private async tryAcquireSlot(keyword: string, zone: string): Promise<ImportSlotDenial | null> {
     if (this.cooldownMinutes <= 0) {
       return null;
     }
 
-    const lastRun = await this.repository.findLastImportRun(keyword, zone);
-    if (!lastRun) {
-      return null;
-    }
+    const now = this.now();
+    const heldUntil = new Date(now.getTime() + this.cooldownMinutes * 60 * 1000).toISOString();
 
-    const elapsedMs = this.now().getTime() - new Date(lastRun.finishedAt).getTime();
-    return elapsedMs < this.cooldownMinutes * 60 * 1000 ? lastRun : null;
+    return this.repository.tryAcquireImportSlot(keyword, zone, heldUntil, now.toISOString());
   }
 }

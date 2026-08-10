@@ -2,15 +2,27 @@ import type { Firestore, Query } from 'firebase-admin/firestore';
 import type { SpecialtyConflictDto } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 import type {
+  ImportSlotDenial,
   PagedResult,
   PlaceFilters,
   PlacesRepository,
   UpsertResult,
 } from '@/domain/ports/placesRepository.js';
+import { importSlotId } from '@/infrastructure/persistence/importSlotId.js';
 
 export interface FirestoreRepositoryConfig {
   placesCollection: string;
   importRunsCollection: string;
+  importSlotsCollection: string;
+}
+
+/** Documento que representa el turno tomado de una combinacion. */
+interface ImportSlot {
+  keyword: string;
+  zone: string;
+  /** Hasta cuando queda tomado, en ISO 8601. */
+  heldUntil: string;
+  acquiredAt: string;
 }
 
 /** Adaptador de persistencia sobre Firestore. */
@@ -116,6 +128,34 @@ export class FirestorePlacesRepository implements PlacesRepository {
 
     const document = snapshot.docs[0];
     return document ? (document.data() as ImportRun) : null;
+  }
+
+  async tryAcquireImportSlot(
+    keyword: string,
+    zone: string,
+    heldUntil: string,
+    now: string,
+  ): Promise<ImportSlotDenial | null> {
+    const reference = this.db
+      .collection(this.config.importSlotsCollection)
+      .doc(importSlotId(keyword, zone));
+
+    // Una transaccion sobre un documento concreto es el caso que Firestore
+    // garantiza: la lectura bloquea ese documento hasta el commit, de modo que
+    // dos peticiones simultaneas se serializan y la segunda ve lo que escribio
+    // la primera. Consultar la coleccion de corridas no daria lo mismo, porque
+    // una consulta que no devuelve nada no impide que otra transaccion inserte.
+    return this.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(reference);
+      const current = snapshot.data() as ImportSlot | undefined;
+
+      if (current && current.heldUntil > now) {
+        return { heldUntil: current.heldUntil };
+      }
+
+      transaction.set(reference, { keyword, zone, heldUntil, acquiredAt: now });
+      return null;
+    });
   }
 
   async purgeExpired(expiredBefore: string): Promise<number> {

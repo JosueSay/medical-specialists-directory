@@ -18,6 +18,12 @@ export interface PagedResult<TItem> {
   totalItems: number;
 }
 
+/** Turno de sincronizacion negado porque otra corrida lo tiene tomado. */
+export interface ImportSlotDenial {
+  /** Momento hasta el que sigue tomado, en ISO 8601. */
+  heldUntil: string;
+}
+
 export interface UpsertResult {
   /** Cuantos documentos se escribieron. */
   upserted: number;
@@ -42,7 +48,8 @@ export interface PlacesRepository {
   saveImportRun(run: ImportRun): Promise<void>;
 
   /**
-   * Ultima sincronizacion de esa combinacion, base del cooldown.
+   * Ultima sincronizacion de esa combinacion. Se conserva para inspeccion y
+   * para las pruebas; el cooldown ya no se decide leyendola.
    *
    * La clave es la keyword y la zona, no la especialidad: cada variante de
    * busqueda es una consulta distinta que devuelve registros distintos, de modo
@@ -50,6 +57,25 @@ export interface PlacesRepository {
    * demas y la mitad del catalogo no llegara a ejecutarse.
    */
   findLastImportRun(keyword: string, zone: string): Promise<ImportRun | null>;
+
+  /**
+   * Toma el turno de sincronizacion de una combinacion, o lo niega si otra
+   * corrida lo tiene tomado hasta `heldUntil`.
+   *
+   * La operacion es **atomica**: comprobar y tomar ocurren sin que nadie pueda
+   * colarse en medio. Leer la ultima corrida y decidir despues dejaba una
+   * ventana en la que dos peticiones identicas simultaneas pasaban las dos,
+   * porque ninguna veia todavia la marca de la otra.
+   *
+   * Devuelve `null` cuando el turno se concede y, cuando se niega, hasta cuando
+   * sigue tomado, para que quien llama pueda decirlo.
+   */
+  tryAcquireImportSlot(
+    keyword: string,
+    zone: string,
+    heldUntil: string,
+    now: string,
+  ): Promise<ImportSlotDenial | null>;
 
   /**
    * Borra los registros cuyo `collectedAt` es anterior a la fecha dada.

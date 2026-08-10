@@ -1,11 +1,13 @@
 import type { SpecialtyConflictDto } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 import type {
+  ImportSlotDenial,
   PagedResult,
   PlaceFilters,
   PlacesRepository,
   UpsertResult,
 } from '@/domain/ports/placesRepository.js';
+import { importSlotId } from '@/infrastructure/persistence/importSlotId.js';
 
 /**
  * Adaptador de persistencia en memoria.
@@ -17,6 +19,8 @@ import type {
 export class InMemoryPlacesRepository implements PlacesRepository {
   private readonly places = new Map<string, Place>();
   private readonly importRuns: ImportRun[] = [];
+  /** Turno por combinacion: identificador -> hasta cuando queda tomado. */
+  private readonly importSlots = new Map<string, string>();
 
   constructor(seed: Place[] = []) {
     for (const place of seed) {
@@ -79,6 +83,27 @@ export class InMemoryPlacesRepository implements PlacesRepository {
       .sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
 
     return matches[0] ?? null;
+  }
+
+  async tryAcquireImportSlot(
+    keyword: string,
+    zone: string,
+    heldUntil: string,
+    now: string,
+  ): Promise<ImportSlotDenial | null> {
+    const id = importSlotId(keyword, zone);
+    const current = this.importSlots.get(id);
+
+    if (current && current > now) {
+      return { heldUntil: current };
+    }
+
+    // Un solo proceso y sin `await` en medio: en JavaScript nada puede
+    // interponerse entre la lectura y la escritura, de modo que la operacion es
+    // tan atomica aqui como la transaccion en Firestore. Se comparte el mismo
+    // calculo de identificador para que ambos adaptadores agrupen igual.
+    this.importSlots.set(id, heldUntil);
+    return null;
   }
 
   async purgeExpired(expiredBefore: string): Promise<number> {

@@ -87,6 +87,10 @@ const envSchema = z.object({
   FIREBASE_PROJECT_ID: z.string().default(runtimeProjectId),
   FIRESTORE_PLACES_COLLECTION: z.string().default('places'),
   FIRESTORE_IMPORT_RUNS_COLLECTION: z.string().default('importRuns'),
+  // Turnos de sincronizacion: un documento por combinacion de keyword y zona,
+  // que es lo que hace atomico el cooldown. Coleccion aparte de `importRuns`
+  // para que esa conserve el historial completo de corridas.
+  FIRESTORE_IMPORT_SLOTS_COLLECTION: z.string().default('importSlots'),
   FIRESTORE_EMULATOR_HOST: z.string().default(''),
 });
 
