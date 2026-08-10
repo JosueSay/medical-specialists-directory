@@ -54,3 +54,8 @@ secrets/
 *.p12
 *.pfx
 service-account*.json
+# Se ignora la carpeta entera y no solo un patron de nombre: una credencial
+# guardada con otro nombre entraria al repositorio sin que nadie lo note
+keys/*
+!keys/.gitkeep
+!keys/README.md
