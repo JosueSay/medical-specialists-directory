@@ -287,25 +287,34 @@ sequenceDiagram
     participant FS as Firestore
 
     OP->>MW: POST /api/v1/place-imports
-    MW->>MW: valida IP de origen
+    MW->>MW: rate limit por IP<br/>RATE_LIMIT_PER_MINUTE
+    MW->>MW: valida IP de origen<br/>contra config/ipWhitelist
     MW->>CT: request autorizado
+    CT->>CT: valida especialidad y zona<br/>contra el catalogo cerrado
     CT->>UC: execute(keyword, specialty, zone)
-    UC->>RP: lastImportAt(keyword, zone)
-    RP-->>UC: fecha de la ultima sincronizacion
-    UC->>FP: cooldownElapsed?
-    alt cooldown vigente
-        FP-->>UC: no
+    UC->>RP: tryAcquireImportSlot(keyword, zone)<br/>SYNC_COOLDOWN_MINUTES
+    RP->>FS: transaccion sobre importSlots/{keyword__zona}
+    alt turno tomado por otra corrida
+        FS-->>RP: heldUntil en el futuro
+        RP-->>UC: denegado
         UC-->>CT: 429 place_import_cooldown_active
-    else cooldown cumplido
-        FP-->>UC: si
+    else turno concedido
+        FS-->>RP: reserva escrita
+        RP-->>UC: concedido
+        UC->>FP: retentionCutoff()<br/>PLACES_RETENTION_HOURS
+        FP-->>UC: fecha limite
+        UC->>RP: purgeExpired(limite)
+        RP->>FS: borra lo que supero la retencion
         loop hasta 2 paginas o sin nextPageToken
             UC->>AD: fetchPage(keyword, pageToken)
-            AD->>GP: places:searchText (pageSize 10)
+            AD->>GP: places:searchText<br/>PLACES_PAGE_SIZE, includedType, region
             alt Google responde
                 GP-->>AD: resultados + nextPageToken
+                AD->>AD: descarta sin nombre utilizable<br/>y fuera de las 22 zonas
                 AD-->>UC: Place[] + nextPageToken
+                UC->>UC: recorta al tope<br/>PLACES_MAX_RESULTS
                 UC->>RP: upsertMany(places)
-                RP->>FS: escritura por lote
+                RP->>FS: escritura por lote<br/>upsert por placeId, conserva createdAt
             else Google falla
                 GP-->>AD: error o timeout
                 AD-->>UC: error
@@ -313,10 +322,14 @@ sequenceDiagram
                 UC-->>CT: 503 places_provider_unavailable
             end
         end
+        UC->>RP: saveImportRun(resumen)
+        RP->>FS: historial en importRuns
         UC-->>CT: resumen de sincronizacion
         CT-->>OP: 201 Created
     end
 ```
+
+El turno se toma **antes** de la primera llamada a Google y no se libera al terminar: vence solo cuando pasa el cooldown. Por eso una corrida que falle a mitad tampoco deja la combinación abierta a reintentos inmediatos, que es lo que se quiere cuando el fallo viene del propio proveedor.
 
 Reglas del caso de uso:
 
@@ -325,6 +338,43 @@ Reglas del caso de uso:
 - La escritura es idempotente: se hace _upsert_ por `placeId`, de modo que repetir una sincronización no duplica registros.
 - La escritura solo ocurre si Google respondió correctamente. Un fallo del proveedor nunca borra ni degrada lo que ya está almacenado.
 - Un cooldown por combinación de keyword y zona impide que sincronizaciones repetidas consuman presupuesto sin aportar datos nuevos.
+
+#### Qué acota exactamente el cooldown
+
+Se confunde con facilidad con un límite de peticiones, y no lo es. Aplica solo a `POST /api/v1/place-imports`, el endpoint que llama a Google y llena Firestore. `GET /places`, lo único que la UI consume, no lo toca nunca.
+
+La regla que expresa es: **esta búsqueda concreta ya se hizo hace poco, no la repitas.**
+
+| Acción                                          | Resultado                               |
+| :---------------------------------------------- | :-------------------------------------- |
+| Sincronizar `cardiologia zona 10`               | Llama a Google y guarda                 |
+| A los 5 minutos, otra vez `cardiologia zona 10` | `429`, sin llamar a Google              |
+| A los 5 minutos, `pediatria zona 5`             | Llama con normalidad                    |
+| A los 5 minutos, `cardiologia zona 11`          | Llama también: misma keyword, otra zona |
+| A los 61 minutos, `cardiologia zona 10`         | Vuelve a llamar                         |
+
+No es «una sincronización cada 60 minutos», sino «cada combinación, una vez por hora». Por eso la corrida completa del catálogo encadenó 770 sincronizaciones sin que ninguna se bloqueara: eran 770 combinaciones distintas.
+
+**El plazo se cuenta desde que empieza la sincronización**, no mientras corre ni desde que termina. Una sincronización tarda segundos, lo que cuestan dos llamadas a Google.
+
+#### Comprobar y reservar en una sola operación
+
+El planteamiento inicial leía la última corrida de `importRuns` y decidía. Funcionaba para el caso corriente y dejaba una ventana en el borde: **el registro de la corrida solo se escribe al terminar**, de modo que dos peticiones idénticas que llegaran a la vez leían ambas que no había nada reciente y las dos pasaban a llamar a Google. Se pagaban dos veces las mismas llamadas.
+
+La corrección no fue acortar la ventana sino eliminarla. El turno de cada combinación vive en su propio documento, `importSlots/{keyword__zona}`, con un identificador **determinista**: dos peticiones de la misma combinación compiten necesariamente por el mismo documento. Tomarlo es una transacción de Firestore que lee y escribe ese documento concreto, que es exactamente el caso que Firestore garantiza — la lectura lo bloquea hasta el commit, así que las peticiones se serializan y la segunda ve lo que dejó la primera.
+
+Consultar la colección de corridas dentro de una transacción no habría bastado: una consulta que no devuelve nada no impide que otra transacción inserte un documento que sí habría devuelto.
+
+Dos consecuencias del diseño que conviene notar:
+
+- **El turno se toma antes de la primera llamada a Google, y no se libera al terminar.** Vence cuando pasa el cooldown. Así, una corrida que falle a mitad tampoco deja la combinación abierta a reintentos inmediatos, que es justo lo que se quiere cuando el fallo viene del proveedor: insistir de golpe gasta cuota sin motivo.
+- **`importSlots` es una colección aparte de `importRuns`.** La primera guarda un documento por combinación y se sobrescribe; la segunda conserva el historial completo de corridas, que es lo que sirve de evidencia. Mezclarlas habría obligado a elegir entre una cosa y la otra.
+
+Como el turno vive en Firestore y no en memoria, el cooldown sobrevive a un reinicio y se aplica por igual a todas las instancias de la función, que Cloud Run escala sin avisar. Un candado en memoria no habría servido: cada instancia tendría el suyo.
+
+La prueba que lo respalda lanza cinco solicitudes simultáneas de la misma combinación contra el emulador y comprueba que solo una obtiene el turno. Está en `apps/backend/tests/integration/`, y tiene que ser de integración: en memoria nada puede interponerse entre una lectura y una escritura, así que un doble no distingue una implementación atómica de una que no lo es.
+
+Contra el abuso por volumen actúa otra cosa, `RATE_LIMIT_PER_MINUTE`, que limita peticiones por IP y por minuto sin importar de qué tipo sean. Uno protege el presupuesto; el otro, el servicio.
 
 ### Diagrama 6: secuencia de consulta
 
@@ -342,14 +392,26 @@ sequenceDiagram
     participant FS as Firestore
 
     ME->>MW: GET /api/v1/places?specialty=cardiology&zone=10
-    MW->>MW: valida IP de origen
+    MW->>MW: rate limit por IP<br/>RATE_LIMIT_PER_MINUTE
+    alt supera el limite
+        MW-->>ME: 429 rate_limit_exceeded
+    end
+    MW->>MW: resuelve IP real<br/>TRUST_PROXY_HOPS saltos
+    MW->>MW: contrasta con config/ipWhitelist<br/>cache de 60 s
+    alt IP no autorizada o fuente ilegible
+        MW-->>ME: 403 ip_not_allowed
+    end
     MW->>CT: request autorizado
+    CT->>CT: valida filtros y pageSize<br/>catalogo cerrado, maximo 50
+    alt fuera de catalogo o de rango
+        CT-->>ME: 422 specialty_not_supported / 400 validation_error
+    end
     CT->>UC: execute(filtros, page, pageSize)
     UC->>RP: findBy(filtros, page, pageSize)
-    RP->>FS: consulta con indice
+    RP->>FS: consulta con indice compuesto
     FS-->>RP: documentos + total
     RP-->>UC: Place[] + total
-    UC->>FP: isStale(place, now) por cada registro
+    UC->>FP: isStale(place, now) por cada registro<br/>PLACES_TTL_MINUTES
     FP-->>UC: fresh o stale
     UC-->>CT: resultado paginado con marca de frescura
     CT-->>ME: 200 OK con meta.pagination
@@ -357,7 +419,82 @@ sequenceDiagram
 
 La consulta nunca devuelve vacío por vencimiento. Un registro vencido se devuelve marcado como `stale`, junto con su `collectedAt`, para que quien consulta decida si le sirve.
 
-### Diagrama 7: ciclo de vida del dato en caché
+### Diagrama 7: dónde actúa cada protección
+
+Las defensas no están en un solo sitio ni protegen de lo mismo. Este diagrama las ordena por el punto del recorrido donde intervienen, con la variable que gobierna cada una y lo que ocurre cuando saltan.
+
+```mermaid
+flowchart TB
+    REQ([Peticion entrante]) --> RL
+
+    subgraph Borde["Borde HTTP: protege el servicio"]
+        RL["Rate limit por IP<br/>RATE_LIMIT_PER_MINUTE = 60"]
+        IP["Whitelist de IPs<br/>config/ipWhitelist, cache 60 s<br/>IP real via TRUST_PROXY_HOPS = 2"]
+        CORS["Origenes permitidos<br/>CORS_ALLOWED_ORIGINS"]
+        RL -->|dentro del limite| IP
+        IP -->|autorizada| CORS
+    end
+
+    CORS --> VAL
+
+    subgraph Contrato["Validacion: protege la integridad"]
+        VAL["Catalogo cerrado<br/>10 especialidades, 22 zonas"]
+        PAG["Limites de paginacion<br/>pageSize maximo 50"]
+        VAL --> PAG
+    end
+
+    PAG --> RUTA{"Que endpoint"}
+    RUTA -->|"GET /places"| LEE
+    RUTA -->|"POST /place-imports"| ESC
+
+    subgraph Lectura["Consulta: no gasta nada"]
+        LEE["Lee solo de Firestore<br/>nunca llama a Google"]
+        TTL["Marca de frescura<br/>PLACES_TTL_MINUTES = 30 dias"]
+        LEE --> TTL
+    end
+
+    subgraph Escritura["Sincronizacion: protege el presupuesto"]
+        ESC["Turno atomico por keyword y zona<br/>SYNC_COOLDOWN_MINUTES = 60"]
+        TOPE["Tope por corrida<br/>PLACES_MAX_RESULTS = 20, 2 llamadas"]
+        FILT["Descarte en el adaptador<br/>sin nombre util, fuera de zona"]
+        RET["Purga por retencion<br/>PLACES_RETENTION_HOURS = 90 dias"]
+        ESC --> TOPE --> FILT --> RET
+    end
+
+    subgraph Cuenta["Fuera del codigo: el ultimo techo"]
+        QUO["Cuota diaria de Places API<br/>200 por dia, 60 por minuto"]
+        PRE["Presupuesto con alertas<br/>50%, 90%, 100%"]
+        KEY["Key del despliegue en Secret Manager<br/>restringida a Places API New"]
+    end
+
+    RET -.->|cada llamada cuenta contra| QUO
+    QUO --> PRE
+    ESC -.->|se autentica con| KEY
+
+    RL -->|excede| E429["429 rate_limit_exceeded"]
+    IP -->|no autorizada| E403["403 ip_not_allowed"]
+    VAL -->|fuera de catalogo| E422["422 specialty_not_supported"]
+    PAG -->|fuera de rango| E400["400 validation_error"]
+    ESC -->|turno tomado| ECD["429 place_import_cooldown_active"]
+
+    style Borde fill:#e3f0fd,stroke:#1565c0,color:#000
+    style Contrato fill:#fff4e0,stroke:#f4b400,color:#000
+    style Lectura fill:#e6f4ea,stroke:#0f9d58,color:#000
+    style Escritura fill:#fce8e6,stroke:#d93025,color:#000
+    style Cuenta fill:#f1f3f4,stroke:#5f6368,color:#000
+```
+
+Cuatro ideas que el diagrama hace visibles y que conviene decir en voz alta:
+
+**Cada capa protege de algo distinto.** El rate limit protege el servicio de un exceso de peticiones; la whitelist, de quién puede hacerlas; el cooldown, del gasto por repetición. Confundirlos lleva a creer que una cubre a las otras, y no es así: el rate limit permite sesenta peticiones por minuto, que serían sesenta sincronizaciones distintas y unos cuatro dólares.
+
+**La lectura no gasta.** `GET /places` no aparece en el bloque de escritura porque nunca llega a Google, ni siquiera cuando devuelve registros vencidos. Es lo que permite que el Ministerio consulte sin límite de costo, y por eso un registro `stale` se devuelve marcado en lugar de refrescarse solo.
+
+**Las defensas del código tienen un techo por debajo.** La cuota diaria y el presupuesto viven en la consola de Google, fuera del repositorio, y siguen valiendo aunque el código falle o alguien despliegue una versión sin cooldown. Es la única capa que un error de programación no puede desactivar.
+
+**Lo que ninguna capa cubre.** No hay autenticación de usuario: la whitelist decide por red, no por identidad, de modo que cualquiera dentro de una red autorizada consulta como si fuera el Ministerio. Se asume así por el alcance del enunciado, que pide control por IP, y queda declarado en la sección de seguridad.
+
+### Diagrama 8: ciclo de vida del dato en caché
 
 ```mermaid
 stateDiagram-v2
@@ -407,7 +544,25 @@ El TTL no se hereda de Google: **es una decisión del equipo que hay que justifi
 | `PLACES_MAX_RESULTS`     | 20                   | 20                      | Límite fijado por el enunciado                                                                                                              |
 | `PLACES_PAGE_SIZE`       | 10                   | 10                      | Dos llamadas facturables por sincronización                                                                                                 |
 
-Los valores de demo y producción quedan sujetos a confirmación del equipo antes de la Semana 3. La plantilla completa está en `.env.example`.
+**Confirmados por P2 y P3 en la Semana 3.** La plantilla completa está en `.env.example`.
+
+Al validarlos se revisó también qué haría visible cada uno durante el curso, y la respuesta es que ninguno:
+
+| Variable  | Cuándo actúa                    | ¿Se observa en el sitio desplegado?                                                |
+| :-------- | :------------------------------ | :--------------------------------------------------------------------------------- |
+| TTL       | En cada consulta                | Sí, pero los datos son del 10 de agosto: no habrá `stale` hasta el 9 de septiembre |
+| Retención | Solo durante una sincronización | No: la campaña ya corrió y no habrá más sincronizaciones                           |
+| Cooldown  | Solo en `POST /place-imports`   | No: la UI no expone ningún control de sincronización                               |
+
+La marca `stale` no se enseñará en vivo. Se decidió así en vez de acortar el TTL, porque toda la base se recolectó la misma noche y **cualquier TTL uniforme la vuelve vencida de golpe**: no existe un valor que produzca una tabla mixta, que es lo único que una demostración añadiría. Acortarlo para la ocasión marcaría como desactualizados datos de dos semanas, que es tan falso como no marcar nada.
+
+### La retención no tiene quién la dispare
+
+Vale la pena decirlo con precisión, porque afecta a una afirmación de la postura ética. `purgeExpired` se invoca desde un único sitio, `ImportPlacesUseCase`: la purga va colgada de la sincronización. **Si nadie sincroniza, nada se purga.**
+
+Durante el curso eso significa que la retención de 90 días no llegará a ejecutarse: la campaña ya corrió y no habrá más importaciones. El mecanismo existe, está probado contra el emulador y se ejecutó de verdad durante la campaña, pero a partir de ahora nada lo despierta.
+
+Se aprueba el valor y **se deja la ejecución automática fuera de alcance**, igual que la búsqueda por texto: haría falta una herramienta que el proyecto no incorpora, una función programada con Cloud Scheduler que invoque la purga a diario con independencia de si alguien sincroniza. Es una decisión de alcance académico y no un olvido, y conviene tenerla dicha antes de que alguien pregunte cómo se garantiza la ventana de 90 días.
 
 ### La purga se ejecuta sobre `collectedAt`
 
