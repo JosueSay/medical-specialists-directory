@@ -81,6 +81,16 @@ type ZoneResolution =
  * de la capital, y solo el codigo postal permite distinguirlo. Ganar cobertura a
  * costa de etiquetar mal los registros no es una mejora.
  */
+/**
+ * Un nombre es utilizable si contiene al menos una letra o un digito. La
+ * comprobacion es deliberadamente minima: no juzga si el nombre es bueno, solo
+ * descarta el que no dice nada. Cualquier regla mas estricta empezaria a
+ * excluir establecimientos reales de nombre corto o poco convencional.
+ */
+export function hasReadableName(name: string): boolean {
+  return /[\p{L}\p{N}]/u.test(name);
+}
+
 export function resolveZoneFromAddress(
   formattedAddress: string,
   supportedZones: readonly string[],
@@ -120,9 +130,19 @@ export class GooglePlacesProvider implements PlacesProvider {
     const places: Place[] = [];
     let outOfScope = 0;
     let withoutZone = 0;
+    let unnamed = 0;
 
     for (const result of response.places ?? []) {
       if (!result.id) {
+        continue;
+      }
+
+      // Google Maps no valida el nombre que declara cada negocio, asi que
+      // aparecen fichas llamadas ".", "-" o un emoji suelto. Un nombre sin una
+      // sola letra ni digito no identifica a nadie: en un directorio que se
+      // consulta por nombre, esa fila no se puede usar ni verificar.
+      if (!hasReadableName(result.displayName?.text ?? '')) {
+        unnamed += 1;
         continue;
       }
 
@@ -151,11 +171,12 @@ export class GooglePlacesProvider implements PlacesProvider {
       );
     }
 
-    if (outOfScope > 0 || withoutZone > 0) {
-      logger.info('Resultados fuera de alcance o sin zona determinable', {
+    if (outOfScope > 0 || withoutZone > 0 || unnamed > 0) {
+      logger.info('Resultados descartados o sin zona determinable', {
         keyword: query.keyword,
         outOfScope,
         withoutZone,
+        unnamed,
       });
     }
 
