@@ -84,9 +84,17 @@ export function usePlaces(initialQuery: ListPlacesQuery) {
         // lugar de desaparecer y volver en cada avance de pagina.
         { ...LOADING_STATE, pagination: result?.pagination ?? null };
 
-  /** Aplica filtros nuevos y vuelve a la primera pagina. */
+  /**
+   * Aplica filtros nuevos y vuelve a la primera pagina.
+   *
+   * Reemplaza la consulta entera en lugar de fundirla con la anterior. El
+   * formulario envia siempre su estado completo, y un filtro que se vacia
+   * simplemente no viaja: fundiendo, la clave ausente dejaba viva la del envio
+   * previo, de modo que borrar la zona y buscar seguia filtrando por ella y
+   * "Limpiar" vaciaba el formulario sin cambiar los resultados.
+   */
   const search = useCallback((next: Omit<ListPlacesQuery, 'page'>) => {
-    setQuery((previous) => ({ ...previous, ...next, page: 1 }));
+    setQuery({ ...next, page: 1 });
   }, []);
 
   const goToPage = useCallback((page: number) => {
