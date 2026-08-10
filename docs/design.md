@@ -1051,6 +1051,24 @@ Dos observaciones que el conteo por sí solo no muestra:
 
 El ejemplo del enunciado, `cardiólogo zona 10 Guatemala`, era correcto. La desviación que el equipo había asumido queda revertida.
 
+#### Forma agentiva en las nueve especialidades restantes
+
+La verificación de cardiología no se extendía sola a las demás: cada especialidad tiene su propio par agentivo/disciplina (`oncologo`/`oncologia`, `pediatra`/`pediatria`...), y nada garantiza que el patrón se repita solo por analogía gramatical. Se corrió la misma comparación —agentivo contra disciplina, página de 20, zona 10— para las nueve restantes con `apps/backend/scripts/compareKeywords.mjs --specialty=all --run --page-size=20`, sin repetir el eje de diacríticos porque ese ya se dio por eliminado en general.
+
+| Especialidad     | Resultados agentivo | Exclusivos | Aporta |
+| :--------------- | ------------------: | ---------: | :----: |
+| Oncología        |                  15 |          8 |   sí   |
+| Pediatría        |                  20 |          6 |   sí   |
+| Dermatología     |                  20 |          5 |   sí   |
+| Ginecología      |                  20 |          6 |   sí   |
+| Neurología       |                  20 |          7 |   sí   |
+| Oftalmología     |                  20 |          2 |   sí   |
+| Ortopedia        |                  18 |         12 |   sí   |
+| Psiquiatría      |                  20 |          4 |   sí   |
+| Medicina general |                  20 |         11 |   sí   |
+
+**Las nueve aportan registros exclusivos, sin excepción.** El agentivo se conserva en las diez especialidades del catálogo, no por analogía gramatical sino comprobado uno por uno. El caso más marcado es ortopedia: `ortopedista` trae 18 resultados contra 8 de `ortopedia`, y 12 de esos 18 son exclusivos — la mayoría de los traumatólogos y ortopedistas de la muestra solo aparecen bajo la forma agentiva. El más marginal es oftalmología, con 2 exclusivos sobre 20, que igual se conserva: el criterio es empírico (aporta o no aporta), no un umbral mínimo de cuántos aporta.
+
 #### Diacríticos
 
 | Página | `cardiologia` exclusivos | `cardiología` exclusivos | Coincidencia |

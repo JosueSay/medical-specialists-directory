@@ -82,10 +82,11 @@ export type Zone = (typeof SUPPORTED_ZONES)[number];
  * arrastra otro rubro (`piel` trae centros de estetica, `optica` trae comercios
  * de lentes) reduce la calidad de los datos en lugar de mejorarla.
  *
- * PENDIENTE (P1): el agentivo esta comprobado solo para cardiologia. Los otros
- * nueve se agregan por analogia gramatical y deben verificarse con
- * `apps/backend/scripts/compareKeywords.mjs` antes de la corrida completa. Cada
- * variante que no aporte cuesta 22 sincronizaciones inutiles.
+ * El agentivo esta comprobado en las diez especialidades, no solo en
+ * cardiologia: todas aportan registros exclusivos frente a la forma de
+ * disciplina. Detalle y numeros por especialidad en docs/design.md, seccion
+ * "Forma agentiva en las nueve especialidades restantes". Reproducible con
+ * `apps/backend/scripts/compareKeywords.mjs --specialty=all --run`.
  */
 export const SPECIALTY_KEYWORD_VARIANTS: Record<Specialty, readonly string[]> = {
   oncology: ['oncologia', 'oncologo', 'clinica oncologica'],
