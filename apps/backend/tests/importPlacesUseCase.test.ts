@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ERROR_CODES } from '@msd/contracts';
 import { ImportPlacesUseCase } from '@/application/importPlacesUseCase.js';
 import { FreshnessPolicy } from '@/domain/freshnessPolicy.js';
 import { InMemoryPlacesRepository } from '@/infrastructure/persistence/inMemoryPlacesRepository.js';
@@ -69,15 +70,29 @@ describe('ImportPlacesUseCase', () => {
     expect(stored.totalItems).toBe(15);
   });
 
-  it('omite la llamada al proveedor mientras el cooldown sigue vigente', async () => {
+  it('rechaza la sincronizacion mientras el cooldown sigue vigente', async () => {
     const { repository, useCase } = buildUseCase({ totalAvailable: 15, cooldownMinutes: 30 });
 
-    const first = await useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' });
-    const second = await useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' });
+    await useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' });
 
-    // La segunda llamada devuelve el resumen de la primera y no registra una corrida nueva
-    expect(second.importId).toBe(first.importId);
+    // Falla en lugar de devolver el resumen de la corrida anterior: quien llama
+    // debe poder distinguir una sincronizacion real de una omitida
+    await expect(
+      useCase.execute({ keyword: 'demo', specialty: 'neurology', zone: '10' }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.PLACE_IMPORT_COOLDOWN_ACTIVE, statusCode: 429 });
+
     expect(repository.listImportRuns()).toHaveLength(1);
+  });
+
+  it('no bloquea otra variante de la misma especialidad y zona', async () => {
+    const { repository, useCase } = buildUseCase({ totalAvailable: 15, cooldownMinutes: 30 });
+
+    // El cooldown existe para no repetir la misma consulta, no para impedir que
+    // el catalogo recorra sus variantes: cada una devuelve registros distintos
+    await useCase.execute({ keyword: 'neurologia zona 10', specialty: 'neurology', zone: '10' });
+    await useCase.execute({ keyword: 'neurologo zona 10', specialty: 'neurology', zone: '10' });
+
+    expect(repository.listImportRuns()).toHaveLength(2);
   });
 
   it('vuelve a sincronizar cuando el cooldown ya vencio', async () => {

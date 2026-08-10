@@ -1,5 +1,5 @@
 import type { Firestore, Query } from 'firebase-admin/firestore';
-import type { Specialty, SpecialtyConflictDto } from '@msd/contracts';
+import type { SpecialtyConflictDto } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 import type {
   PagedResult,
@@ -91,10 +91,10 @@ export class FirestorePlacesRepository implements PlacesRepository {
     await this.db.collection(this.config.importRunsCollection).doc(run.importId).set(run);
   }
 
-  async findLastImportRun(specialty: Specialty, zone: string): Promise<ImportRun | null> {
+  async findLastImportRun(keyword: string, zone: string): Promise<ImportRun | null> {
     const snapshot = await this.db
       .collection(this.config.importRunsCollection)
-      .where('specialty', '==', specialty)
+      .where('keyword', '==', keyword)
       .where('zone', '==', zone)
       .orderBy('finishedAt', 'desc')
       .limit(1)

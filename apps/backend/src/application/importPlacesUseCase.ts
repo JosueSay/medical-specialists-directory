@@ -44,7 +44,7 @@ export interface ImportPlacesDependencies {
  * Es el unico flujo que llama a Google. Tres reglas acotan el costo y respetan
  * las politicas de Places API:
  *   - corta al alcanzar el tope de resultados o cuando no hay `nextPageToken`;
- *   - respeta un cooldown por combinacion de especialidad y zona;
+ *   - respeta un cooldown por combinacion de keyword y zona;
  *   - purga los registros que superaron la retencion antes de escribir.
  *
  * La escritura es idempotente por `placeId`, asi que repetir una sincronizacion
@@ -84,15 +84,20 @@ export class ImportPlacesUseCase {
 
     const specialty: Specialty = input.specialty;
 
-    const recentRun = await this.findRunWithinCooldown(specialty, input.zone);
+    const recentRun = await this.findRunWithinCooldown(input.keyword, input.zone);
     if (recentRun) {
-      // No se llama a Google: se devuelve el resumen de la corrida vigente
+      // No se llama a Google. Se responde con error y no con el resumen de la
+      // corrida anterior: devolver 201 con datos de otra ejecucion hace que
+      // quien llama no pueda distinguir una sincronizacion real de una omitida,
+      // y un recorrido del catalogo contaria como exitosas invocaciones que
+      // nunca ocurrieron.
       logger.info('Sincronizacion omitida por cooldown', {
+        keyword: input.keyword,
         specialty,
         zone: input.zone,
         lastRunFinishedAt: recentRun.finishedAt,
       });
-      return recentRun;
+      throw AppError.importCooldownActive();
     }
 
     const purged = await this.repository.purgeExpired(this.freshness.retentionCutoff(this.now()));
@@ -178,16 +183,20 @@ export class ImportPlacesUseCase {
     return run;
   }
 
-  /** Devuelve la ultima corrida si todavia esta dentro del cooldown. */
-  private async findRunWithinCooldown(
-    specialty: Specialty,
-    zone: string,
-  ): Promise<ImportRun | null> {
+  /**
+   * Devuelve la ultima corrida si todavia esta dentro del cooldown.
+   *
+   * La clave es la keyword y no la especialidad. Cada variante de busqueda es
+   * una consulta distinta contra Google y devuelve registros distintos, de modo
+   * que agrupar por especialidad haria que la primera variante bloqueara a las
+   * demas durante todo el cooldown.
+   */
+  private async findRunWithinCooldown(keyword: string, zone: string): Promise<ImportRun | null> {
     if (this.cooldownMinutes <= 0) {
       return null;
     }
 
-    const lastRun = await this.repository.findLastImportRun(specialty, zone);
+    const lastRun = await this.repository.findLastImportRun(keyword, zone);
     if (!lastRun) {
       return null;
     }

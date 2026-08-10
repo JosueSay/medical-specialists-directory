@@ -1,3 +1,4 @@
+import { SUPPORTED_ZONES } from '@msd/contracts';
 import type { Place } from '@/domain/entities/place.js';
 import type { PlacesProvider, ProviderPage, ProviderQuery } from '@/domain/ports/placesProvider.js';
 import { AppError } from '@/shared/appError.js';
@@ -45,6 +46,57 @@ interface GooglePlaceResult {
   websiteUri?: string;
 }
 
+/**
+ * Codigo postal de Ciudad de Guatemala dentro de la direccion.
+ *
+ * La ciudad usa el formato `010NN`, donde `NN` es el numero de zona: `01010` es
+ * zona 10 y `01001` es zona 1. Otros municipios del departamento tambien empiezan
+ * por `01` pero no siguen ese tramo, de modo que el patron distingue lo que esta
+ * dentro de la ciudad de lo que no.
+ */
+const GUATEMALA_CITY_POSTAL_CODE = /\b010(\d{2})\b/;
+
+/**
+ * Resultado de resolver la zona de una direccion.
+ *
+ * `unknown` y `outOfScope` no son lo mismo y no se tratan igual: la primera
+ * significa que la direccion no permite saberlo, la segunda que si permite saber
+ * que el establecimiento no esta en Ciudad de Guatemala.
+ */
+type ZoneResolution =
+  | { readonly kind: 'resolved'; readonly zone: string }
+  | { readonly kind: 'unknown' }
+  | { readonly kind: 'outOfScope' };
+
+/**
+ * Deduce la zona a partir del codigo postal que Google incluye en la direccion.
+ *
+ * No es inferencia: `formattedAddress` viene tal cual de Places API y el codigo
+ * postal forma parte de esa cadena. Leerlo es usar un dato que el proveedor
+ * entrego, no completar uno que falta.
+ *
+ * Se descarta a proposito el texto libre de la direccion como fuente
+ * alternativa, aunque muchas incluyan «zona 9» o «Z.11». Una direccion observada
+ * decia «Zona 4 Colonia Venecia 2 Villa Nueva»: esa zona 4 es de Villa Nueva y no
+ * de la capital, y solo el codigo postal permite distinguirlo. Ganar cobertura a
+ * costa de etiquetar mal los registros no es una mejora.
+ */
+export function resolveZoneFromAddress(
+  formattedAddress: string,
+  supportedZones: readonly string[],
+): ZoneResolution {
+  const match = GUATEMALA_CITY_POSTAL_CODE.exec(formattedAddress);
+
+  if (!match?.[1]) {
+    return { kind: 'unknown' };
+  }
+
+  // El cero a la izquierda se descarta: el catalogo usa `4`, no `04`
+  const zone = String(Number(match[1]));
+
+  return supportedZones.includes(zone) ? { kind: 'resolved', zone } : { kind: 'outOfScope' };
+}
+
 interface GoogleSearchTextResponse {
   places?: GooglePlaceResult[];
   nextPageToken?: string;
@@ -65,9 +117,47 @@ export class GooglePlacesProvider implements PlacesProvider {
     const response = await this.requestSearchText(query.keyword, query.pageSize, pageToken);
     const timestamp = new Date().toISOString();
 
-    const places = (response.places ?? [])
-      .filter((result): result is GooglePlaceResult & { id: string } => Boolean(result.id))
-      .map((result) => this.toPlace(result, query, timestamp));
+    const places: Place[] = [];
+    let outOfScope = 0;
+    let withoutZone = 0;
+
+    for (const result of response.places ?? []) {
+      if (!result.id) {
+        continue;
+      }
+
+      const resolution = resolveZoneFromAddress(result.formattedAddress ?? '', SUPPORTED_ZONES);
+
+      // Google no acota los resultados a la zona consultada ni al municipio: una
+      // busqueda de la capital devuelve establecimientos de Villa Nueva o de la
+      // carretera a El Salvador. Se descartan porque el directorio se declara de
+      // Ciudad de Guatemala, y guardarlos seria prometer un alcance que no tiene.
+      if (resolution.kind === 'outOfScope') {
+        outOfScope += 1;
+        continue;
+      }
+
+      if (resolution.kind === 'unknown') {
+        withoutZone += 1;
+      }
+
+      places.push(
+        this.toPlace(
+          result as GooglePlaceResult & { id: string },
+          query,
+          timestamp,
+          resolution.kind === 'resolved' ? resolution.zone : '',
+        ),
+      );
+    }
+
+    if (outOfScope > 0 || withoutZone > 0) {
+      logger.info('Resultados fuera de alcance o sin zona determinable', {
+        keyword: query.keyword,
+        outOfScope,
+        withoutZone,
+      });
+    }
 
     return {
       places,
@@ -140,17 +230,28 @@ export class GooglePlacesProvider implements PlacesProvider {
    * Los campos ausentes se guardan como cadena vacia, no se completan con otras
    * fuentes ni se sustituyen por valores por defecto.
    */
+  /**
+   * `zone` llega resuelta desde la direccion y no se toma de la consulta.
+   *
+   * Tomarla de la keyword parecia lo mas honesto porque evitaba deducir, pero
+   * producia un dato falso: Google devuelve establecimientos de toda la ciudad
+   * ante cualquier consulta de zona, de modo que un consultorio de la zona 10
+   * acababa etiquetado como zona 25 si esa fue la ultima busqueda que lo
+   * encontro. La procedencia de la consulta no se pierde: queda en
+   * `sourceKeyword`, que conserva el texto exacto que origino el registro.
+   */
   private toPlace(
     result: GooglePlaceResult & { id: string },
     query: ProviderQuery,
     timestamp: string,
+    zone: string,
   ): Place {
     return {
       placeId: result.id,
       name: result.displayName?.text ?? '',
       formattedAddress: result.formattedAddress ?? '',
       specialty: query.specialty,
-      zone: query.zone,
+      zone,
       phoneNumber: result.nationalPhoneNumber ?? '',
       website: result.websiteUri ?? '',
       sourceKeyword: query.keyword,

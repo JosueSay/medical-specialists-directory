@@ -1,4 +1,4 @@
-import type { Specialty, SpecialtyConflictDto } from '@msd/contracts';
+import type { SpecialtyConflictDto } from '@msd/contracts';
 import type { ImportRun, Place } from '@/domain/entities/place.js';
 import type {
   PagedResult,
@@ -73,9 +73,9 @@ export class InMemoryPlacesRepository implements PlacesRepository {
     this.importRuns.push(run);
   }
 
-  async findLastImportRun(specialty: Specialty, zone: string): Promise<ImportRun | null> {
+  async findLastImportRun(keyword: string, zone: string): Promise<ImportRun | null> {
     const matches = this.importRuns
-      .filter((run) => run.specialty === specialty && run.zone === zone)
+      .filter((run) => run.keyword === keyword && run.zone === zone)
       .sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
 
     return matches[0] ?? null;

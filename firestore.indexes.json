@@ -37,7 +37,7 @@
       "collectionGroup": "importRuns",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "specialty", "order": "ASCENDING" },
+        { "fieldPath": "keyword", "order": "ASCENDING" },
         { "fieldPath": "zone", "order": "ASCENDING" },
         { "fieldPath": "finishedAt", "order": "DESCENDING" }
       ]

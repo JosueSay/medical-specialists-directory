@@ -509,9 +509,39 @@ erDiagram
 
 Tres decisiones del modelo que hay que poder defender:
 
-- **`zone` y `specialty` provienen de la keyword, no de la dirección.** Derivar la zona a partir del texto de la dirección sería inferir un dato que Google no entregó, lo que el enunciado prohíbe de forma expresa. Si la búsqueda fue `cardiólogo zona 10 Guatemala`, entonces `zone` vale `10` porque así se pidió, y `sourceKeyword` conserva la evidencia.
+- **`specialty` proviene de la keyword; `zone` se lee del código postal de la dirección.** La especialidad no figura en ningún campo que Google devuelva, así que solo puede venir de lo que el operador declaró. La zona sí figura: `formattedAddress` incluye el código postal, y en Ciudad de Guatemala tiene el formato `010NN` donde `NN` es la zona. Leerlo no es inferir, es usar un dato que el proveedor entregó. `sourceKeyword` conserva la consulta exacta que originó cada registro, de modo que la procedencia sigue siendo auditable. El porqué de este cambio está en [Por qué la zona dejó de venir de la keyword](#por-qué-la-zona-dejó-de-venir-de-la-keyword).
 - **`phoneNumber` y `website` se guardan vacíos cuando Google no los entrega.** No se completan con datos de otras fuentes ni se sustituyen por redes sociales. La cobertura medida de cada campo está en [Cobertura de campos medida](#cobertura-de-campos-medida).
 - **No se almacenan `latitude`, `longitude` ni `rating`.** El enunciado no los pide, la UI no los usa y la georreferenciación está fuera del alcance. Persistir menos campos es coherente con la minimización declarada en la postura ética.
+
+### Por qué la zona dejó de venir de la keyword
+
+La primera versión tomaba `zone` de la consulta: si la búsqueda decía `zona 10`, el registro se guardaba con `zone: "10"`. El razonamiento era evitar inferir un dato a partir de la dirección. **Produjo datos falsos**, y la primera corrida completa lo dejó a la vista.
+
+Google no acota los resultados a la zona consultada. Una búsqueda de la zona 1 devuelve consultorios de toda la ciudad, y como la escritura es idempotente por `placeId`, el mismo establecimiento se reescribía en cada consulta que lo encontraba. El valor final de `zone` acababa siendo el de la última búsqueda que lo devolvió, no el de dónde está.
+
+El reparto de registros por zona tras esa corrida lo mide sin ambigüedad:
+
+| Zona | Registros |
+| ---: | --------: |
+|    1 |        10 |
+|    4 |         5 |
+|   10 |        35 |
+|   15 |        30 |
+|   21 |        29 |
+|   24 |        96 |
+|   25 |       107 |
+
+Las zonas 24 y 25 son las dos últimas de `SUPPORTED_ZONES` y concentran el 36% de la base. La zona 10, donde se concentra la oferta médica real de la ciudad, quedaba con un tercio de lo que se le atribuía a la 25. El sesgo no describía la ciudad, describía el orden del bucle.
+
+**La solución es leer el código postal**, que Google incluye en `formattedAddress`. La ciudad usa `010NN`, donde `NN` es la zona. Donde la dirección además menciona la zona en texto, ambos coinciden.
+
+Es importante que esto no contradice la regla de no inferir. El código postal **viene de la API**, en el mismo campo que la calle y el número. Lo que se descartó fue deducir la zona de la keyword, que era el dato que no venía de ninguna parte.
+
+Tres consecuencias, y ninguna se disimula:
+
+- **Alrededor del 20% de las direcciones no trae código postal.** Esos registros se guardan con zona vacía. Aparecen en las consultas sin filtro de zona y no aparecen al filtrar por una.
+- **Se descartan los resultados de otros municipios.** Una dirección con código `01057`, o en Villa Nueva, no pertenece a Ciudad de Guatemala y guardarla prometería un alcance que el directorio no tiene.
+- **No se usa el texto de la dirección como fuente alternativa**, aunque muchas incluyan «zona 9» o «Z.11» y eso subiría la cobertura. Una dirección real decía `Zona 4 Colonia Venecia 2 Villa Nueva`: esa zona 4 es de Villa Nueva, y solo el código postal permite distinguirla de la zona 4 de la capital. Ganar cobertura etiquetando mal no es ganar.
 
 ### Índices de Firestore
 
@@ -525,7 +555,7 @@ Los índices se declaran en `firestore.indexes.json` y se despliegan con `fireba
 | `places`     | `specialty`, `name`                 | Filtro por especialidad                             |
 | `places`     | `zone`, `name`                      | Filtro por zona                                     |
 | `places`     | `specialty`, `collectedAt`          | Detección de registros vencidos                     |
-| `importRuns` | `specialty`, `zone`, `finishedAt` ↓ | Cooldown: última sincronización de esa combinación  |
+| `importRuns` | `keyword`, `zone`, `finishedAt` ↓   | Cooldown: última sincronización de esa keyword y zona |
 
 El de `importRuns` faltaba en la primera versión del archivo y solo apareció al ejecutar la primera sincronización contra Firestore real. Es un fallo que **ningún entorno de desarrollo detecta**: el repositorio en memoria no usa índices, y el emulador de Firestore no los exige por defecto. La lección operativa es que la verificación contra Firestore real no se puede posponer hasta el despliegue.
 
@@ -1182,6 +1212,16 @@ Dos condiciones de ejecución, que no son opcionales:
 - **La cuota diaria hay que subirla antes y bajarla después.** Está en 200 solicitudes por día y la campaña necesita 1,540: al ritmo actual tardaría ocho días. Se sube a 2,000 el día de la corrida y se devuelve a 200 al terminar. Que la protección estorbe cuando el gasto es deliberado es señal de que está bien puesta, no de que sobre.
 - **La corrida se ejecuta una sola vez.** Repetirla no añade registros nuevos salvo que Google haya cambiado sus datos, y sí vuelve a facturar. El cooldown no protege aquí, porque opera por keyword y zona y la campaña recorre combinaciones distintas.
 
+#### La primera corrida no ejecutó lo que reportó
+
+Vale la pena dejarlo escrito porque el fallo fue silencioso y el resumen decía lo contrario. La primera corrida informó 770 sincronizaciones y 11,632 registros; ejecutó **220** y escribió alrededor de 3,300.
+
+Dos defectos se combinaron. El cooldown agrupaba por especialidad y zona en lugar de por keyword y zona, de modo que la primera variante de cada combinación bloqueaba a las otras tres durante los sesenta minutos siguientes. Y al omitir una sincronización, el caso de uso devolvía `201` con el resumen de la corrida anterior en lugar del `429` que manda el contrato, así que el script de campaña contaba como exitosas invocaciones que nunca llegaron a Google y volvía a sumar registros ya contados.
+
+El costo real fue de cero: 440 llamadas caben en el umbral gratuito mensual. Lo que se perdió fue cobertura, y precisamente la de las variantes agentivas que la verificación acababa de demostrar valiosas.
+
+Las tres correcciones aplicadas: el cooldown se cierra por keyword y zona, la omisión responde `429`, y el script de campaña comprueba que el resumen recibido corresponda a la combinación que pidió en lugar de dar por buena cualquier respuesta con estado de éxito.
+
 ### Ejecución
 
 Las 770 combinaciones de especialidad, variante y zona no se disparan a mano. El operador ejecuta un script que recorre el catálogo e invoca `POST /api/v1/place-imports` por cada combinación. Sigue siendo una acción deliberada y no un proceso programado, y como el cooldown opera por keyword y zona, un recorrido de combinaciones distintas no lo activa.
@@ -1287,7 +1327,8 @@ Se aplica el ciclo mapear, medir y manejar.
 Sección requerida por el enunciado. Se irá ampliando conforme avance la implementación y aparezcan datos reales.
 
 - **Términos de servicio de Google.** Las políticas de Places permiten almacenar el `place_id` de forma indefinida y restringen el resto del contenido. El proyecto guarda un subconjunto acotado de campos con TTL y retención máxima, como desviación consciente de alcance académico. En un escenario real se requeriría un acuerdo comercial. No se construye un producto que redistribuya los resultados de Google.
-- **No inferir datos.** Ningún campo se completa, deduce ni enriquece con fuentes externas. La zona y la especialidad provienen de la keyword utilizada, no de una interpretación de la dirección, y `sourceKeyword` conserva la evidencia del origen. Los campos que Google no entrega se guardan vacíos y su cobertura se reporta.
+- **No inferir datos.** Ningún campo se completa, deduce ni enriquece con fuentes externas. Todo lo que se persiste viene de la respuesta de Places API: la zona se lee del código postal que Google incluye en la dirección, y la especialidad de la keyword declarada por el operador, porque no existe en ningún campo que la API devuelva. `sourceKeyword` conserva la consulta exacta que originó cada registro. Los campos que Google no entrega se guardan vacíos y su cobertura se reporta.
+- **Una decisión que se tomó por prudencia y resultó peor.** Tomar la zona de la keyword parecía lo más conservador porque evitaba interpretar la dirección, y acabó etiquetando la mayoría de los registros con una zona que no era la suya. La lección quedó documentada en lugar de corregida en silencio: una salvaguarda que no se comprueba contra datos reales puede producir exactamente el daño que pretendía evitar.
 - **El directorio es una referencia, no una validación médica.** No acredita competencia profesional ni vigencia de colegiado. Toda respuesta incluye `collectedAt` para que quien la consuma sepa de cuándo es el dato.
 - **Transparencia del resultado.** La respuesta expone la marca `stale`, la fecha `collectedAt` y la paginación, de modo que la lista no se lea como exhaustiva ni como actual por defecto.
 - **Minimización.** Solo se persisten los campos necesarios para localizar un especialista. Se descartaron coordenadas y calificación por no ser requeridos.

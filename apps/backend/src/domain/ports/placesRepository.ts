@@ -41,8 +41,15 @@ export interface PlacesRepository {
 
   saveImportRun(run: ImportRun): Promise<void>;
 
-  /** Ultima sincronizacion de esa combinacion, base del cooldown. */
-  findLastImportRun(specialty: Specialty, zone: string): Promise<ImportRun | null>;
+  /**
+   * Ultima sincronizacion de esa combinacion, base del cooldown.
+   *
+   * La clave es la keyword y la zona, no la especialidad: cada variante de
+   * busqueda es una consulta distinta que devuelve registros distintos, de modo
+   * que agrupar por especialidad haria que la primera variante bloqueara a las
+   * demas y la mitad del catalogo no llegara a ejecutarse.
+   */
+  findLastImportRun(keyword: string, zone: string): Promise<ImportRun | null>;
 
   /**
    * Borra los registros cuyo `collectedAt` es anterior a la fecha dada.

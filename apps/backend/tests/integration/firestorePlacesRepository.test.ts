@@ -239,13 +239,15 @@ describe('FirestorePlacesRepository contra el emulador', () => {
   });
 
   describe('findLastImportRun', () => {
+    const KEYWORD = 'cardiologia zona 10 Guatemala';
+
     it('devuelve null cuando esa combinacion nunca se sincronizo', async () => {
-      const run = await repository.findLastImportRun('oncology', '1');
+      const run = await repository.findLastImportRun('oncologia zona 1 Guatemala', '1');
 
       expect(run).toBeNull();
     });
 
-    it('devuelve la corrida mas reciente de esa especialidad y zona', async () => {
+    it('devuelve la corrida mas reciente de esa keyword y zona', async () => {
       await repository.saveImportRun(
         buildImportRun({ importId: 'antigua', finishedAt: '2026-01-01T00:00:00.000Z' }),
       );
@@ -253,7 +255,7 @@ describe('FirestorePlacesRepository contra el emulador', () => {
         buildImportRun({ importId: 'reciente', finishedAt: '2026-02-01T00:00:00.000Z' }),
       );
 
-      const run = await repository.findLastImportRun('cardiology', '10');
+      const run = await repository.findLastImportRun(KEYWORD, '10');
 
       expect(run?.importId).toBe('reciente');
     });
@@ -266,9 +268,28 @@ describe('FirestorePlacesRepository contra el emulador', () => {
         buildImportRun({ importId: 'zona-10', zone: '10', finishedAt: '2026-01-01T00:00:00.000Z' }),
       );
 
-      const run = await repository.findLastImportRun('cardiology', '10');
+      const run = await repository.findLastImportRun(KEYWORD, '10');
 
       expect(run?.importId).toBe('zona-10');
+    });
+
+    /**
+     * La regresion que vacio la primera corrida completa. Al agrupar por
+     * especialidad, la primera variante bloqueaba a las demas durante todo el
+     * cooldown y solo una de cada cuatro llegaba a ejecutarse.
+     */
+    it('no confunde otra variante de la misma especialidad y zona', async () => {
+      await repository.saveImportRun(
+        buildImportRun({
+          importId: 'disciplina',
+          keyword: 'cardiologia zona 10 Guatemala',
+          finishedAt: '2026-01-01T00:00:00.000Z',
+        }),
+      );
+
+      const run = await repository.findLastImportRun('cardiologo zona 10 Guatemala', '10');
+
+      expect(run).toBeNull();
     });
   });
 

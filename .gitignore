@@ -16,6 +16,11 @@ coverage/
 # Logs
 logs/
 *.log
+
+# Progreso de la corrida completa: es estado local de una ejecucion concreta,
+# no configuracion compartida. Versionarlo haria que otra maquina creyera
+# sincronizadas combinaciones que nunca ejecuto.
+.campaign-progress.jsonl
 npm-debug.log*
 pnpm-debug.log*
 
