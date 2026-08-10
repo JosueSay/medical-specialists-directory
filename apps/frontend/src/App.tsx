@@ -9,7 +9,7 @@ export function App() {
       <I18nProvider>
         <div className="bg-canvas min-h-screen">
           <AppHeader />
-          <main className="mx-auto max-w-6xl px-4 py-6">
+          <main className="mx-auto max-w-screen-2xl px-4 py-6">
             <PlacesView />
           </main>
         </div>

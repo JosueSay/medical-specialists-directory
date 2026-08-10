@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/Card';
-import { Alert, EmptyState, LoadingState } from '@/components/ui/Feedback';
+import { Alert, EmptyState } from '@/components/ui/Feedback';
 import { Pagination } from '@/components/ui/Pagination';
 import { clientEnv } from '@/config/env';
 import { PlaceFilters } from '@/features/places/PlaceFilters';
@@ -13,17 +13,34 @@ import { useI18n } from '@/i18n/useI18n';
  */
 export function PlacesView() {
   const { t } = useI18n();
-  const { state, search, goToPage } = usePlaces({
+  const { query, state, search, goToPage } = usePlaces({
     page: 1,
     pageSize: clientEnv.defaultPageSize,
   });
 
+  const loading = state.status === 'loading';
+  // El esqueleto dibuja tantas filas como resultados se esperan, de modo que el
+  // alto reservado coincida con el de la tabla que va a ocupar su lugar
+  const skeletonRows = query.pageSize ?? clientEnv.defaultPageSize;
+
   return (
     <div className="flex flex-col gap-6">
-      <PlaceFilters disabled={state.status === 'loading'} onSearch={search} />
+      <PlaceFilters disabled={loading} onSearch={search} />
 
       <Card>
-        {state.status === 'loading' ? <LoadingState label={t('state_loading')} /> : null}
+        {loading ? (
+          <>
+            {/* Las barras animadas comunican la espera a quien ve la pantalla;
+                para quien no la ve hace falta decirlo */}
+            <span className="sr-only" role="status" aria-live="polite">
+              {t('state_loading')}
+            </span>
+            <PlacesTable places={[]} loadingRows={skeletonRows} />
+            {state.pagination ? (
+              <Pagination pagination={state.pagination} onPageChange={goToPage} disabled />
+            ) : null}
+          </>
+        ) : null}
 
         {state.status === 'error' && state.errorCode ? (
           <div className="p-5">
@@ -47,8 +64,6 @@ export function PlacesView() {
           </>
         ) : null}
       </Card>
-
-      <p className="text-content-muted text-xs">{t('coverage_notice')}</p>
     </div>
   );
 }

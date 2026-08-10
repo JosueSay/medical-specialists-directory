@@ -79,7 +79,10 @@ export function usePlaces(initialQuery: ListPlacesQuery) {
           pagination: result.pagination,
           errorCode: result.errorCode,
         }
-      : LOADING_STATE;
+      : // Mientras carga se conserva la paginacion de la consulta anterior. No
+        // describe la que viene, pero permite que la barra siga en pantalla en
+        // lugar de desaparecer y volver en cada avance de pagina.
+        { ...LOADING_STATE, pagination: result?.pagination ?? null };
 
   /** Aplica filtros nuevos y vuelve a la primera pagina. */
   const search = useCallback((next: Omit<ListPlacesQuery, 'page'>) => {

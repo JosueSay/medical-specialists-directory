@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AlertTriangle, Info, Loader2, SearchX } from 'lucide-react';
+import { AlertTriangle, Info, SearchX } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 type AlertTone = 'danger' | 'warning' | 'info';
@@ -31,19 +31,6 @@ export function Alert({ tone = 'info', title, children }: AlertProps) {
         <p className="font-medium">{title}</p>
         {children ? <div className="mt-1 opacity-90">{children}</div> : null}
       </div>
-    </div>
-  );
-}
-
-export function LoadingState({ label }: { label: string }) {
-  return (
-    <div
-      className="text-content-muted flex items-center justify-center gap-2 py-12 text-sm"
-      role="status"
-      aria-live="polite"
-    >
-      <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-      <span>{label}</span>
     </div>
   );
 }

@@ -9,7 +9,7 @@ export function AppHeader() {
 
   return (
     <header className="border-border bg-surface sticky top-0 z-10 border-b">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-4 py-3">
         <div className="flex items-center gap-3">
           <span className="bg-brand-soft text-brand grid size-9 place-items-center rounded-md">
             <Stethoscope size={20} aria-hidden="true" />

@@ -39,7 +39,6 @@
   "theme_light": "Light",
   "theme_dark": "Dark",
   "locale_toggle": "Switch language",
-  "coverage_notice": "Coverage varies by zone: this data comes from a public source and is not a complete census",
   "specialty_oncology": "Oncology",
   "specialty_cardiology": "Cardiology",
   "specialty_pediatrics": "Pediatrics",
