@@ -53,6 +53,7 @@ function buildImportRun(overrides: Partial<ImportRun> = {}): ImportRun {
     pagesFetched: 2,
     itemsFetched: 19,
     itemsUpserted: 19,
+    specialtyConflicts: [],
     startedAt: '2026-01-01T00:00:00.000Z',
     finishedAt: '2026-01-01T00:00:01.000Z',
     ...overrides,
@@ -142,6 +143,41 @@ describe('FirestorePlacesRepository contra el emulador', () => {
 
       expect(document.data()?.website).toBe('');
       expect(document.data()?.phoneNumber).toBe('');
+    });
+
+    /**
+     * placeId es la clave del documento, asi que el mismo negocio real puede
+     * coincidir con la busqueda de otra especialidad y perder su etiqueta
+     * anterior sin dejar rastro, salvo por este reporte.
+     */
+    it('detecta cuando un placeId ya existia bajo otra especialidad', async () => {
+      await repository.upsertMany([buildPlace({ placeId: 'compartido', specialty: 'oncology' })]);
+
+      const { specialtyConflicts } = await repository.upsertMany([
+        buildPlace({ placeId: 'compartido', specialty: 'cardiology', name: 'Centro Mixto' }),
+      ]);
+
+      expect(specialtyConflicts).toEqual([
+        {
+          placeId: 'compartido',
+          name: 'Centro Mixto',
+          previousSpecialty: 'oncology',
+          newSpecialty: 'cardiology',
+        },
+      ]);
+
+      const document = await db.collection(PLACES_COLLECTION).doc('compartido').get();
+      expect(document.data()?.specialty).toBe('cardiology');
+    });
+
+    it('no reporta conflicto cuando la especialidad no cambia', async () => {
+      await repository.upsertMany([buildPlace({ placeId: 'estable', specialty: 'cardiology' })]);
+
+      const { specialtyConflicts } = await repository.upsertMany([
+        buildPlace({ placeId: 'estable', specialty: 'cardiology', name: 'Nombre actualizado' }),
+      ]);
+
+      expect(specialtyConflicts).toEqual([]);
     });
   });
 

@@ -138,6 +138,81 @@ describe('ImportPlacesUseCase', () => {
     expect(repository.listImportRuns()).toHaveLength(1);
   });
 
+  it('reporta cuando un lugar ya existia bajo otra especialidad', async () => {
+    // Fijo porque la purga por retencion corre antes del fetch: con la fecha
+    // real, un placeId sembrado con collectedAt viejo desaparecería antes de
+    // que el import llegara a compararlo.
+    const now = new Date('2026-03-01T12:00:00.000Z');
+
+    const repository = new InMemoryPlacesRepository([
+      {
+        placeId: 'compartido',
+        name: 'Centro Medico Compartido',
+        formattedAddress: '1a Calle 1-01, Zona 1, Guatemala',
+        specialty: 'oncology',
+        zone: '1',
+        sourceKeyword: 'oncologo zona 1 Guatemala',
+        createdAt: '2026-03-01T11:00:00.000Z',
+        collectedAt: '2026-03-01T11:00:00.000Z',
+        phoneNumber: '',
+        website: '',
+      },
+    ]);
+
+    // El proveedor real puede devolver el mismo placeId para la busqueda de
+    // otra especialidad: MockPlacesProvider no lo simula porque namespacea el
+    // placeId por especialidad, asi que hace falta uno a medida.
+    const useCase = new ImportPlacesUseCase({
+      provider: {
+        fetchPage: async () => ({
+          places: [
+            {
+              placeId: 'compartido',
+              name: 'Centro Medico Compartido',
+              formattedAddress: '1a Calle 1-01, Zona 1, Guatemala',
+              specialty: 'cardiology',
+              zone: '1',
+              sourceKeyword: 'cardiologo zona 1 Guatemala',
+              createdAt: now.toISOString(),
+              collectedAt: now.toISOString(),
+              phoneNumber: '',
+              website: '',
+            },
+          ],
+        }),
+      },
+      repository,
+      pageSize: 10,
+      maxResults: 20,
+      cooldownMinutes: 0,
+      freshness: new FreshnessPolicy({ ttlMinutes: 30, retentionHours: 24 }),
+      now: () => now,
+    });
+
+    const summary = await useCase.execute({
+      keyword: 'cardiologo zona 1 Guatemala',
+      specialty: 'cardiology',
+      zone: '1',
+    });
+
+    expect(summary.specialtyConflicts).toEqual([
+      {
+        placeId: 'compartido',
+        name: 'Centro Medico Compartido',
+        previousSpecialty: 'oncology',
+        newSpecialty: 'cardiology',
+      },
+    ]);
+  });
+
+  it('no reporta conflictos cuando ningun lugar cambia de especialidad', async () => {
+    const { useCase } = buildUseCase({ totalAvailable: 5 });
+
+    const summary = await useCase.execute({ keyword: 'demo', specialty: 'oncology', zone: '4' });
+
+    expect(summary.specialtyConflicts).toEqual([]);
+  });
+
   it('propaga el error del proveedor sin exponer detalles internos', async () => {
     const repository = new InMemoryPlacesRepository();
     const useCase = new ImportPlacesUseCase({
