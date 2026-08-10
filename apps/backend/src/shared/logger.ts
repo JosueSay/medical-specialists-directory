@@ -14,8 +14,39 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 40,
 };
 
-const SENSITIVE_KEY_PATTERN = /(key|token|secret|password|authorization|credential)/i;
+const SENSITIVE_WORDS = new Set([
+  'key',
+  'keys',
+  'token',
+  'tokens',
+  'secret',
+  'secrets',
+  'password',
+  'authorization',
+  'credential',
+  'credentials',
+]);
+
 const REDACTED = '[REDACTED]';
+
+/**
+ * Decide si el nombre de un campo designa un secreto.
+ *
+ * Compara palabras completas y no subcadenas. Buscar `key` dentro del nombre
+ * tachaba `keyword`, que es lo contrario de lo que interesa: la keyword es la
+ * trazabilidad de cada registro y sin ella el log no sirve para auditar de que
+ * consulta salio un dato. Tachar de mas parece la opcion prudente hasta que
+ * borra la evidencia que uno necesitaba conservar.
+ */
+function isSensitiveKey(name: string): boolean {
+  return (
+    name
+      // Separa camelCase para que `apiKey` se lea como dos palabras
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .split(/[^a-zA-Z0-9]+/)
+      .some((word) => SENSITIVE_WORDS.has(word.toLowerCase()))
+  );
+}
 
 function redact(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -26,7 +57,7 @@ function redact(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([key, item]) => [
         key,
-        SENSITIVE_KEY_PATTERN.test(key) ? REDACTED : redact(item),
+        isSensitiveKey(key) ? REDACTED : redact(item),
       ]),
     );
   }

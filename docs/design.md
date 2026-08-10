@@ -510,7 +510,7 @@ erDiagram
 Tres decisiones del modelo que hay que poder defender:
 
 - **`specialty` proviene de la keyword; `zone` se lee del código postal de la dirección.** La especialidad no figura en ningún campo que Google devuelva, así que solo puede venir de lo que el operador declaró. La zona sí figura: `formattedAddress` incluye el código postal, y en Ciudad de Guatemala tiene el formato `010NN` donde `NN` es la zona. Leerlo no es inferir, es usar un dato que el proveedor entregó. `sourceKeyword` conserva la consulta exacta que originó cada registro, de modo que la procedencia sigue siendo auditable. El porqué de este cambio está en [Por qué la zona dejó de venir de la keyword](#por-qué-la-zona-dejó-de-venir-de-la-keyword).
-- **`phoneNumber` y `website` se guardan vacíos cuando Google no los entrega.** No se completan con datos de otras fuentes ni se sustituyen por redes sociales. La cobertura medida de cada campo está en [Cobertura de campos medida](#cobertura-de-campos-medida).
+- **`phoneNumber` y `website` se guardan vacíos cuando Google no los entrega.** No se completan con datos de otras fuentes. Y cuando lo que Google entrega como `website` es un perfil de red social, se conserva tal cual: sustituirlo o vaciarlo sería alterar el dato de origen, así que se declara cuántos son. La cobertura medida de cada campo está en [Cobertura de campos medida](#cobertura-de-campos-medida).
 - **No se almacenan `latitude`, `longitude` ni `rating`.** El enunciado no los pide, la UI no los usa y la georreferenciación está fuera del alcance. Persistir menos campos es coherente con la minimización declarada en la postura ética.
 
 ### Por qué la zona dejó de venir de la keyword
@@ -549,13 +549,13 @@ Firestore exige un índice compuesto para toda consulta que filtre por un campo 
 
 Los índices se declaran en `firestore.indexes.json` y se despliegan con `firebase deploy --only firestore`. Declararlos ahí y no crearlos desde la consola es lo que hace que el repositorio describa con exactitud lo que la base necesita: un índice creado a mano funciona en el proyecto de quien lo creó y falla en el de los otros tres integrantes.
 
-| Colección    | Campos                              | Consulta que lo necesita                            |
-| :----------- | :---------------------------------- | :-------------------------------------------------- |
-| `places`     | `specialty`, `zone`, `name`         | Filtro por especialidad y zona, ordenado por nombre |
-| `places`     | `specialty`, `name`                 | Filtro por especialidad                             |
-| `places`     | `zone`, `name`                      | Filtro por zona                                     |
-| `places`     | `specialty`, `collectedAt`          | Detección de registros vencidos                     |
-| `importRuns` | `keyword`, `zone`, `finishedAt` ↓   | Cooldown: última sincronización de esa keyword y zona |
+| Colección    | Campos                            | Consulta que lo necesita                              |
+| :----------- | :-------------------------------- | :---------------------------------------------------- |
+| `places`     | `specialty`, `zone`, `name`       | Filtro por especialidad y zona, ordenado por nombre   |
+| `places`     | `specialty`, `name`               | Filtro por especialidad                               |
+| `places`     | `zone`, `name`                    | Filtro por zona                                       |
+| `places`     | `specialty`, `collectedAt`        | Detección de registros vencidos                       |
+| `importRuns` | `keyword`, `zone`, `finishedAt` ↓ | Cooldown: última sincronización de esa keyword y zona |
 
 El de `importRuns` faltaba en la primera versión del archivo y solo apareció al ejecutar la primera sincronización contra Firestore real. Es un fallo que **ningún entorno de desarrollo detecta**: el repositorio en memoria no usa índices, y el emulador de Firestore no los exige por defecto. La lección operativa es que la verificación contra Firestore real no se puede posponer hasta el despliegue.
 
@@ -1241,54 +1241,91 @@ La estrategia tiene límites conocidos que se reportan de forma explícita y no 
 
 El enunciado exige que los campos vacíos se reporten y no se rellenen. Reportarlos significa dar el número, no la advertencia genérica.
 
-Primera medición, sobre la sincronización de `cardiologia zona 10 Guatemala` ejecutada contra Places API real y persistida en Firestore:
+Medición sobre la corrida completa del catálogo: **731 registros únicos**, resultado de 770 sincronizaciones contra Places API. Que 770 búsquedas produzcan 731 registros distintos indica el solapamiento entre variantes y zonas, y es la razón por la que el conteo de escrituras no sirve como medida de cobertura.
 
 | Campo              | Registros con dato | Cobertura |
 | :----------------- | :----------------- | :-------- |
-| `placeId`          | 19 de 19           | 100%      |
-| `name`             | 19 de 19           | 100%      |
-| `formattedAddress` | 19 de 19           | 100%      |
-| `phoneNumber`      | 19 de 19           | 100%      |
-| `website`          | 9 de 19            | **47%**   |
+| `placeId`          | 731 de 731         | 100%      |
+| `name`             | 731 de 731         | 100%      |
+| `formattedAddress` | 731 de 731         | 100%      |
+| `phoneNumber`      | 661 de 731         | **90%**   |
+| `zone`             | 486 de 731         | **66%**   |
+| `website`          | 368 de 731         | **50%**   |
 
-**Más de la mitad de los establecimientos no tiene sitio web en el registro de Google.** No es un fallo de la recolección ni un dato pendiente de completar: es la realidad de la fuente. Un directorio que presentara ese campo como habitualmente disponible estaría describiendo mal lo que entrega.
+**La mitad de los establecimientos no tiene sitio web y uno de cada diez no tiene teléfono.** No es un fallo de la recolección ni un dato pendiente de completar: es lo que la fuente entrega. Un directorio que presentara esos campos como habitualmente disponibles describiría mal lo que ofrece.
+
+La zona se resuelve desde el código postal, de modo que **un tercio de los registros no tiene zona determinable**. Esos registros existen y se devuelven en las consultas sin filtro de zona, pero desaparecen al filtrar por una. Es el costo directo de haber elegido precisión sobre cobertura: la alternativa era leer la zona del texto de la dirección, que habría subido la cifra a costa de etiquetar mal registros de otros municipios.
+
+Una advertencia metodológica que se ganó a golpes. La primera medición se hizo sobre una sola combinación, `cardiologia zona 10`, y daba **100% de teléfono**; sobre la base completa el valor real es 90%. Zona 10 es la de mayor presencia comercial privada de la ciudad, de modo que medir ahí equivalía a medir en el mejor caso. Un porcentaje de cobertura obtenido de la combinación más favorable no describe la base, la halaga.
+
+#### Qué hay realmente en el campo `website`
+
+El enunciado advierte que ese campo «puede estar vacío o apuntar a una clínica, no a una red social», y pide documentarlo. Medido:
+
+|                          | Registros | Sobre el total |
+| :----------------------- | --------: | -------------: |
+| Con sitio web            |       368 |            50% |
+| De ellos, redes sociales |    **36** |   5% del total |
+| Sitio propio             |       332 |  45% del total |
+
+Se cuentan como red social las URL de Facebook, Instagram, LinkedIn, TikTok, X y enlaces de WhatsApp. Uno de cada diez sitios registrados no es un sitio: es un perfil.
+
+**No se corrigen ni se descartan.** Es lo que el establecimiento declaró ante Google como su presencia en línea, y sustituirlo o vaciarlo sería alterar el dato de origen. Lo que corresponde es que quien consuma el directorio sepa que detrás de `website` puede haber una página de Facebook, y que el 55% de los registros no tiene ninguna de las dos cosas.
 
 La cifra se reproduce sobre la base ya poblada, sin gastar llamadas:
 
 ```bash
-curl -s 'http://localhost:4000/api/v1/places?specialty=cardiology&zone=10&pageSize=50' \
-  | jq '{total:(.data|length), conTelefono:([.data[]|select(.phoneNumber!="")]|length), conSitio:([.data[]|select(.website!="")]|length)}'
+total=0; phone=0; site=0
+for p in $(seq 1 15); do
+  r=$(curl -s "http://localhost:4000/api/v1/places?page=$p&pageSize=50")
+  total=$((total + $(echo "$r" | jq '.data|length')))
+  phone=$((phone + $(echo "$r" | jq '[.data[]|select(.phoneNumber!="")]|length')))
+  site=$((site + $(echo "$r" | jq '[.data[]|select(.website!="")]|length')))
+done
+echo "total=$total conTelefono=$phone conSitio=$site"
 ```
 
-#### Cobertura por las diez especialidades, zona 10
+#### Cobertura por especialidad: pendiente de rehacer
 
-Repetida sobre las diez especialidades, todas en zona 10 (la única zona sincronizada hasta ahora; repetirla en otras zonas queda para cuando la recolección avance ahí):
+Hubo una medición por especialidad sobre zona 10 que **quedó invalidada** y se retira en lugar de conservarse con una nota al pie. Se hizo antes de corregir los tres defectos de la recolección, sobre una base donde la zona era la de la última consulta que tocó cada registro y donde el cooldown, agrupado por especialidad, dejaba correr solo una variante de cada cuatro. Sus totales por especialidad no describían la zona 10 sino el residuo de esos dos fallos.
 
-| Especialidad     | Total | Con teléfono | Cobertura tel. | Con sitio web | Cobertura web |
-| :--------------- | ----: | -----------: | -------------: | ------------: | ------------: |
-| Cardiología      |    13 |           13 |           100% |             4 |           30% |
-| Oncología        |     5 |            5 |           100% |             3 |           60% |
-| Pediatría        |    19 |           19 |           100% |             8 |           42% |
-| Dermatología     |    20 |           19 |            95% |            14 |           70% |
-| Ginecología      |    20 |           20 |           100% |            16 |           80% |
-| Neurología       |    14 |           14 |           100% |            11 |           78% |
-| Oftalmología     |    20 |           18 |            90% |             7 |           35% |
-| Ortopedia        |     8 |            8 |           100% |             4 |           50% |
-| Psiquiatría      |    17 |           17 |           100% |            13 |           76% |
-| Medicina general |    18 |           18 |           100% |            11 |           61% |
+Aquella medición sí dejó una observación que se sostiene: **la cobertura de sitio web varía mucho entre especialidades**, lo bastante como para que la cifra de una sola no represente a las demás. Eso es lo que justifica medir sobre la base completa y no extrapolar.
 
-**La cobertura de teléfono es alta y pareja en las diez** (90-100%). **La de sitio web varía mucho** (30% en cardiología, 80% en ginecología): confirma lo que la primera medición ya sugería, que la proporción no se sostiene entre especialidades, y descarta usar la cifra de una sola como representativa de todas.
-
-El total de cardiología bajó de 19 (primera medición) a 13: no es una pérdida de datos, es el mismo fenómeno de `specialtyConflicts` documentado más arriba, aplicado también al campo `zone` por la misma razón (`placeId` como clave del documento). El import de prueba de `cardiologia zona 4 Guatemala` durante el despliegue tocó lugares que ya estaban clasificados en zona 10 y les cambió la zona. Es la misma limitación conocida, no un caso nuevo.
-
-Reproducible para las diez de una corrida, sin gastar llamadas:
+Rehacerla es barato y no gasta llamadas:
 
 ```bash
 for s in cardiology oncology pediatrics dermatology gynecology neurology ophthalmology orthopedics psychiatry generalMedicine; do
-  curl -s "http://localhost:4000/api/v1/places?specialty=${s}&zone=10&pageSize=50" \
+  curl -s "http://localhost:4000/api/v1/places?specialty=${s}&pageSize=50" \
     | jq -r --arg s "$s" '{s:$s, total:(.data|length), tel:([.data[]|select(.phoneNumber!="")]|length), web:([.data[]|select(.website!="")]|length)}'
 done
 ```
+
+Conviene notar que ese comando toma solo la primera página de cada especialidad, de modo que sirve para comparar proporciones y no para contar totales.
+
+### Reparto por zona
+
+Es el dato que el enunciado pide reportar sin presentarlo como censo, y el que más se presta a leerse mal.
+
+| Zona | Registros | Zona | Registros |
+| ---: | --------: | ---: | --------: |
+|    1 |        35 |   13 |         8 |
+|    2 |         3 |   14 |        44 |
+|    3 |         4 |   15 |        26 |
+|    4 |         1 |   16 |         3 |
+|    5 |         0 |   17 |         3 |
+|    6 |         4 |   18 |         4 |
+|    7 |        12 |   19 |         1 |
+|    8 |         1 |   21 |         1 |
+|    9 |        88 |   24 |         0 |
+|   10 |       209 |   25 |         0 |
+|   11 |        32 |      |           |
+|   12 |         7 |      |           |
+
+**Las zonas 9, 10 y 14 concentran el 70% de los registros con zona.** Son las de mayor presencia comercial privada de la ciudad. Cinco zonas quedan en cero o en un solo registro.
+
+Esa concentración no mide dónde hay atención médica: mide dónde hay consultorios registrados en Google Maps, que es otra cosa. Un consultorio llega a ese registro cuando alguien tuvo el interés comercial y la capacidad técnica de darlo de alta, condiciones que se cumplen mucho más en las zonas de mayor poder adquisitivo. Leer esta tabla como distribución de la oferta sanitaria de la ciudad llevaría a concluir que las zonas periféricas no tienen médicos, cuando lo que muestran es que sus médicos no están en Google.
+
+El sesgo estaba anticipado en la postura ética antes de recolectar. Ahora tiene número, y el número es más marcado de lo que sugería el argumento.
 
 ## Decisiones de diseño
 
@@ -1311,16 +1348,18 @@ done
 
 Se aplica el ciclo mapear, medir y manejar.
 
-| Riesgo                                                                                  | Métrica                                                 | Mitigación                                                                                                              |
-| :-------------------------------------------------------------------------------------- | :------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------- |
-| Cobertura desigual entre zonas: Places API tiene menos registros en áreas rurales       | Registros por zona respecto al total                    | Documentar la cobertura por zona y no presentar la base como censo completo                                             |
-| Sesgo de despliegue: el sistema se prueba con datos inventados y falla con datos reales | Diferencia entre resultados en emulador y en producción | Ejecutar la sincronización contra Places API real antes de entregar                                                     |
-| Datos desactualizados servidos como vigentes                                            | Antigüedad de `collectedAt` por documento               | TTL explícito, marca `stale` y `collectedAt` visible en la respuesta                                                    |
-| Fuga o abuso de la API key                                                              | Llamadas facturadas por día                             | Variables de entorno, key por integrante restringida por IP, cuota diaria y alertas de billing                          |
-| Gasto no controlado por sincronizaciones repetidas                                      | Sincronizaciones por keyword y por día                  | Cooldown por keyword y zona, tope de 20 resultados por invocación                                                       |
-| Exposición innecesaria de datos                                                         | Campos devueltos por endpoint                           | La respuesta incluye solo los campos que la UI utiliza                                                                  |
-| Campos vacíos que se interpretan como error del sistema                                 | Porcentaje de registros sin `phoneNumber` o `website`   | Reportar la cobertura real de cada campo en la documentación, sin rellenarlos                                           |
-| Falsos positivos: registros que no ejercen la especialidad bajo la que se guardaron     | No medida, requeriría clasificación manual              | Declarar la limitación y conservar `sourceKeyword` para que cada registro sea rastreable hasta la consulta que lo trajo |
+| Riesgo                                                                                               | Métrica                                                                              | Mitigación                                                                                                                                             |
+| :--------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cobertura desigual entre zonas: Places API tiene menos registros donde hay menos presencia comercial | **Medido**: las zonas 9, 10 y 14 concentran el 70%; cinco zonas quedan en cero o uno | Reportar el conteo por zona junto a la advertencia de que mide presencia digital y no oferta médica                                                    |
+| Un tercio de los registros sin zona determinable desaparece al filtrar por zona                      | **Medido**: 486 de 731 tienen zona, el 66%                                           | Declarar la cifra y no presentar el filtro por zona como exhaustivo                                                                                    |
+| Sesgo de despliegue: el sistema se prueba con datos inventados y falla con datos reales              | Diferencia entre resultados en emulador y en producción                              | Ejecutar la sincronización contra Places API real antes de entregar                                                                                    |
+| Datos desactualizados servidos como vigentes                                                         | Antigüedad de `collectedAt` por documento                                            | TTL explícito, marca `stale` y `collectedAt` visible en la respuesta                                                                                   |
+| Fuga o abuso de la API key                                                                           | Llamadas facturadas por día                                                          | Variables de entorno, key por integrante restringida por IP, cuota diaria y alertas de billing                                                         |
+| Gasto no controlado por sincronizaciones repetidas                                                   | Sincronizaciones por keyword y por día                                               | Cooldown por keyword y zona, tope de 20 resultados por invocación                                                                                      |
+| Exposición innecesaria de datos                                                                      | Campos devueltos por endpoint                                                        | La respuesta incluye solo los campos que la UI utiliza                                                                                                 |
+| Campos vacíos que se interpretan como error del sistema                                              | **Medido**: 90% con teléfono, 50% con sitio web                                      | Reportar la cobertura real de cada campo en la documentación, sin rellenarlos                                                                          |
+| Medir la cobertura sobre la combinación más favorable y presentarla como general                     | Diferencia entre la muestra y la base completa                                       | La primera medición dio 100% de teléfono sobre `cardiologia zona 10`; la base completa da 90%. Toda cifra de cobertura se calcula sobre la base entera |
+| Falsos positivos: registros que no ejercen la especialidad bajo la que se guardaron                  | No medida, requeriría clasificación manual                                           | Declarar la limitación y conservar `sourceKeyword` para que cada registro sea rastreable hasta la consulta que lo trajo                                |
 
 ## Postura ética
 
