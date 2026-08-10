@@ -326,9 +326,21 @@ Este paso es **opcional** y solo aplica si se quiere trabajar contra Firestore r
 2. **Crear cuenta de servicio**, nombre `msd-local-dev`.
 3. Rol: **Cloud Datastore User** (`roles/datastore.user`). Es el rol mínimo que permite leer y escribir en Firestore sin conceder administración.
 4. Terminar y abrir la cuenta creada. Pestaña **Claves**, **Agregar clave**, **Crear clave nueva**, formato **JSON**.
-5. Guardar el archivo **fuera del repositorio**, por ejemplo en `~/.config/msd/service-account.json`.
+5. Guardar el archivo como `keys/service-account.json`, en la raíz del repositorio.
 
-El archivo descargado es una credencial de larga duración: quien lo tenga puede escribir en la base. No se versiona, no se comparte por chat y no se deja en la carpeta del proyecto aunque `.gitignore` lo cubra.
+En el paso de permisos no hace falta agregar condiciones de IAM ni principales con acceso: lo primero limita el rol por recurso o por tiempo, y lo segundo permite que otros usuarios suplanten la cuenta de servicio. Ninguna de las dos cosas aplica aquí.
+
+La carpeta `keys/` está ignorada por completo, no solo por un patrón de nombre, precisamente porque el archivo que descarga Google trae un nombre generado que ningún patrón previsible cubre. El detalle está en [keys/README.md](../keys/README.md).
+
+Después, en el `.env`:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=../../keys/service-account.json
+```
+
+El `../../` es correcto y conviene no "corregirlo": el SDK de Google resuelve esa ruta contra el directorio de trabajo del proceso, y el backend corre desde `apps/backend`. Guardar la credencial dentro del repositorio en lugar de en una ruta personal hace que la configuración sea idéntica en las cuatro máquinas del equipo.
+
+El archivo descargado es una credencial de larga duración: quien lo tenga puede escribir en la base, sin caducidad y sin segundo factor. No se versiona y no se comparte por chat. Si llega a subirse, no basta con borrarlo en un commit posterior porque queda en el historial: hay que eliminar la clave desde la consola y generar otra.
 
 ## Qué es secreto y qué no
 

@@ -409,6 +409,14 @@ El TTL no se hereda de Google: **es una decisión del equipo que hay que justifi
 
 Los valores de demo y producción quedan sujetos a confirmación del equipo antes de la Semana 3. La plantilla completa está en `.env.example`.
 
+### La purga se ejecuta sobre `collectedAt`
+
+La retención es el único mecanismo que hace cierta la afirmación de que solo el `placeId` se conserva indefinidamente, así que conviene precisar sobre qué campo opera: **`collectedAt`**, la última vez que el proveedor confirmó el registro. La entidad `Place` no tiene ningún otro campo de fecha de modificación.
+
+Merece una nota propia porque el adaptador de Firestore consultaba un campo inexistente, y **Firestore no falla ante eso**: excluye de las consultas de rango los documentos que carecen del campo consultado y devuelve el conjunto vacío. La purga informaba cero registros eliminados y parecía correcta, cuando en realidad la política de retención no se estaba aplicando en absoluto.
+
+El adaptador en memoria sí filtraba por `collectedAt`, de modo que en desarrollo la purga funcionaba y en producción no. Dos implementaciones del mismo puerto divergían en su comportamiento, que es precisamente lo que la arquitectura de puertos pretende evitar. Lo que faltó no fue el diseño sino la comprobación: ninguna prueba cubre el adaptador de Firestore, y solo se ejecutó contra la base real al preparar la entrega de la Semana 2.
+
 ## Configuración y entornos
 
 Toda la configuración se resuelve por variables de entorno, con `.env.example` como plantilla versionada y `.env` fuera del repositorio.
@@ -502,13 +510,26 @@ erDiagram
 Tres decisiones del modelo que hay que poder defender:
 
 - **`zone` y `specialty` provienen de la keyword, no de la dirección.** Derivar la zona a partir del texto de la dirección sería inferir un dato que Google no entregó, lo que el enunciado prohíbe de forma expresa. Si la búsqueda fue `cardiólogo zona 10 Guatemala`, entonces `zone` vale `10` porque así se pidió, y `sourceKeyword` conserva la evidencia.
-- **`phoneNumber` y `website` se guardan vacíos cuando Google no los entrega.** No se completan con datos de otras fuentes ni se sustituyen por redes sociales. La cobertura real de estos campos se reporta en la documentación.
+- **`phoneNumber` y `website` se guardan vacíos cuando Google no los entrega.** No se completan con datos de otras fuentes ni se sustituyen por redes sociales. La cobertura medida de cada campo está en [Cobertura de campos medida](#cobertura-de-campos-medida).
 - **No se almacenan `latitude`, `longitude` ni `rating`.** El enunciado no los pide, la UI no los usa y la georreferenciación está fuera del alcance. Persistir menos campos es coherente con la minimización declarada en la postura ética.
 
-Índices requeridos en Firestore:
+### Índices de Firestore
 
-- Compuesto sobre `specialty` y `zone` para el filtro principal.
-- Simple sobre `collectedAt` para detectar registros vencidos y purgar los que superen la retención.
+Firestore exige un índice compuesto para toda consulta que filtre por un campo y ordene por otro, y **rechaza la consulta entera** con `FAILED_PRECONDITION` si no existe. No degrada el rendimiento: falla.
+
+Los índices se declaran en `firestore.indexes.json` y se despliegan con `firebase deploy --only firestore`. Declararlos ahí y no crearlos desde la consola es lo que hace que el repositorio describa con exactitud lo que la base necesita: un índice creado a mano funciona en el proyecto de quien lo creó y falla en el de los otros tres integrantes.
+
+| Colección    | Campos                              | Consulta que lo necesita                            |
+| :----------- | :---------------------------------- | :-------------------------------------------------- |
+| `places`     | `specialty`, `zone`, `name`         | Filtro por especialidad y zona, ordenado por nombre |
+| `places`     | `specialty`, `name`                 | Filtro por especialidad                             |
+| `places`     | `zone`, `name`                      | Filtro por zona                                     |
+| `places`     | `specialty`, `collectedAt`          | Detección de registros vencidos                     |
+| `importRuns` | `specialty`, `zone`, `finishedAt` ↓ | Cooldown: última sincronización de esa combinación  |
+
+El de `importRuns` faltaba en la primera versión del archivo y solo apareció al ejecutar la primera sincronización contra Firestore real. Es un fallo que **ningún entorno de desarrollo detecta**: el repositorio en memoria no usa índices, y el emulador de Firestore no los exige por defecto. La lección operativa es que la verificación contra Firestore real no se puede posponer hasta el despliegue.
+
+La construcción de un índice tarda unos minutos incluso sobre una colección vacía, y mientras tanto la consulta sigue fallando con un mensaje distinto —`That index is currently building`— que conviene saber distinguir del de índice inexistente.
 
 ## Contratos de API
 
@@ -809,6 +830,15 @@ Entregable de la Semana 1. Las capturas se guardan en `docs/images/` y se enlaza
 | Whitelist rechazando una IP no autorizada  | [ip-whitelist-403.png](images/ip-whitelist-403.png)       | `403` con `ip_not_allowed` y la IP rechazada registrada en el log     |
 | Función `hello world` desplegada           | [hello-world-deploy.png](images/hello-world-deploy.png)   | `Deploy complete!`, la URL de la función y su respuesta `200`         |
 
+De la Semana 2, cuyo entregable es una colección con datos reales:
+
+| Evidencia                       | Captura                                                     | Qué se comprueba en ella                                              |
+| :------------------------------ | :---------------------------------------------------------- | :-------------------------------------------------------------------- |
+| Colección `places` en Firestore | [firestore-places.png](images/firestore-places.png)         | Documentos identificados por su `placeId` y con los campos del modelo |
+| Registro de la sincronización   | [firestore-import-run.png](images/firestore-import-run.png) | `importRuns` con páginas recorridas, elementos traídos y persistidos  |
+
+El registro de la sincronización acredita algo que la colección de lugares por sí sola no muestra: que el recorrido respetó el tope de dos páginas y que cada dato llegó de una keyword declarada, no inferida.
+
 Las alertas del 50% y del 90% no son dos presupuestos sino dos umbrales de uno solo, de modo que una única captura de la lista de presupuestos las acredita a ambas: muestra a la vez el nombre, el proyecto al que se aplica, los tres umbrales y el consumo acumulado.
 
 La whitelist es entregable de la Semana 1 por sí misma, así que necesita evidencia propia: que el código exista no se ve en una entrega. Son dos imágenes y no una porque el valor está en el contraste entre ambos estados, y combinarlas obliga a reducir el texto hasta que los logs dejan de leerse.
@@ -1002,6 +1032,31 @@ La estrategia tiene límites conocidos que se reportan de forma explícita y no 
 - Los especialistas que atienden dentro de hospitales generales o centros de salud públicos no aparecen como registro independiente.
 - Las especialidades fuera del catálogo de diez no se recolectan.
 - La cobertura de Google Maps no es uniforme entre zonas, lo que se aborda en la postura ética.
+
+### Cobertura de campos medida
+
+El enunciado exige que los campos vacíos se reporten y no se rellenen. Reportarlos significa dar el número, no la advertencia genérica.
+
+Primera medición, sobre la sincronización de `cardiologia zona 10 Guatemala` ejecutada contra Places API real y persistida en Firestore:
+
+| Campo              | Registros con dato | Cobertura |
+| :----------------- | :----------------- | :-------- |
+| `placeId`          | 19 de 19           | 100%      |
+| `name`             | 19 de 19           | 100%      |
+| `formattedAddress` | 19 de 19           | 100%      |
+| `phoneNumber`      | 19 de 19           | 100%      |
+| `website`          | 9 de 19            | **47%**   |
+
+**Más de la mitad de los establecimientos no tiene sitio web en el registro de Google.** No es un fallo de la recolección ni un dato pendiente de completar: es la realidad de la fuente. Un directorio que presentara ese campo como habitualmente disponible estaría describiendo mal lo que entrega.
+
+La cifra se reproduce sobre la base ya poblada, sin gastar llamadas:
+
+```bash
+curl -s 'http://localhost:4000/api/v1/places?specialty=cardiology&zone=10&pageSize=50' \
+  | jq '{total:(.data|length), conTelefono:([.data[]|select(.phoneNumber!="")]|length), conSitio:([.data[]|select(.website!="")]|length)}'
+```
+
+La medición se repite por especialidad y zona conforme avance la recolección, porque no hay razón para suponer que la proporción se mantenga: un consultorio de barrio y una clínica de zona 10 no tienen la misma probabilidad de haber registrado un sitio web.
 
 ## Decisiones de diseño
 

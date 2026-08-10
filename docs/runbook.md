@@ -129,7 +129,44 @@ El `login` pregunta por Gemini en el CLI y por telemetría: **responder `n` a am
 
 Sin Docker, los mismos subcomandos con `npx firebase-tools@latest`.
 
-## Fase 5: desplegar `hello world`
+## Fase 5: contra Firestore real
+
+Entregable de la Semana 2. Requiere el Paso 8 de [credentials-setup.md](credentials-setup.md): la cuenta de servicio con su clave en `keys/service-account.json`.
+
+**Primero los índices, siempre.** Firestore rechaza con `FAILED_PRECONDITION` cualquier consulta que filtre por un campo y ordene por otro sin un índice compuesto que la cubra. No es una degradación de rendimiento: la petición falla entera.
+
+```bash
+docker compose --profile tools run --rm hermes deploy --only firestore
+```
+
+Sube reglas e índices. La construcción tarda unos minutos aunque las colecciones estén vacías; en **Firestore Database, Índices** deben quedar todos en _Habilitado_ antes de continuar.
+
+En el `.env`:
+
+```bash
+PERSISTENCE_DRIVER=firestore
+PLACES_PROVIDER_DRIVER=google
+GOOGLE_APPLICATION_CREDENTIALS=../../keys/service-account.json
+FIRESTORE_EMULATOR_HOST=
+```
+
+`FIRESTORE_EMULATOR_HOST` vacío es lo que hace que apunte a Firestore real; con cualquier valor escribiría en el emulador.
+
+```bash
+pnpm dev:backend
+```
+
+El arranque debe registrar `Persistencia: Firestore` con el identificador del proyecto. Si dice `memoria`, el driver no cambió; si falla buscando las credenciales, la ruta relativa no resolvió y hay que ponerla absoluta.
+
+```bash
+curl -s -w '\nHTTP %{http_code}\n' -X POST http://localhost:4000/api/v1/place-imports -H 'Content-Type: application/json' -d '{"keyword":"cardiologia zona 10 Guatemala","specialty":"cardiology","zone":"10"}'
+
+curl -s 'http://localhost:4000/api/v1/places?specialty=cardiology&zone=10'
+```
+
+En la consola, **Firestore Database, Datos** debe mostrar `places` con un documento por lugar identificado por su `placeId`, e `importRuns` con el registro de la corrida. Captura como `docs/images/firestore-places.png`.
+
+## Fase 6: desplegar `hello world`
 
 Entregable de la Semana 1. Se despliega **solo esa función**, porque `api` declara el secreto `GOOGLE_MAPS_API_KEY` y el despliegue falla si aún no existe en Secret Manager.
 
@@ -156,7 +193,7 @@ curl -s -w '\nHTTP %{http_code}\n' '<la URL que imprimio el deploy>'
 
 Responde `Hello World` con `200`. Captura como `docs/images/hello-world-deploy.png`.
 
-## Fase 6: desplegar la API completa
+## Fase 7: desplegar la API completa
 
 Requiere los Pasos 6 y 7 de [credentials-setup.md](credentials-setup.md): el documento `config/ipWhitelist` en Firestore y la segunda API key, la que no lleva restricción de IP.
 
@@ -180,14 +217,16 @@ Formato, linter, tipos y pruebas en el mismo orden que la integración continua.
 
 ## Errores frecuentes
 
-| Síntoma                                                      | Causa                                                  | Solución                                                     |
-| :----------------------------------------------------------- | :----------------------------------------------------- | :----------------------------------------------------------- |
-| `HTTP 000` en un `curl`                                      | El servidor no está levantado, o la URL es un marcador | Levantar el backend, o sustituir el marcador por la URL real |
-| `Cannot find package 'esbuild'`                              | `node_modules` desactualizado tras un `git pull`       | `pnpm install`                                               |
-| `Cannot find module ... prettier`                            | `node_modules` instalado en otro sistema operativo     | Reinstalar en el entorno que se vaya a usar, y no alternar   |
-| `ENOENT: uv_cwd`                                             | El shell perdió su directorio de trabajo               | `cd` con la ruta absoluta, o abrir otra terminal             |
-| `No function matches given --only filters`                   | Falta el segmento del codebase en el filtro            | `--only functions:api:<nombre>`                              |
-| `INVALID_ARGUMENT` con `Unexpected token` al llamar a Google | PowerShell deformó el JSON en línea                    | Pasar el cuerpo en un archivo con `-d "@archivo"`            |
-| `403` con `ip_not_allowed` sin haber cambiado nada           | `IP_WHITELIST` vacío, o la IP de la red cambió         | Agregar la IP actual a la lista                              |
-| `403 SERVICE_DISABLED` desde Places API                      | Se habilitó la Places API heredada                     | Habilitar **Places API (New)**                               |
-| `Command failed with signal "SIGINT"` al pulsar `Ctrl+C`     | Ninguna: pnpm reporta la señal como fallo              | Ninguna                                                      |
+| Síntoma                                                              | Causa                                                  | Solución                                                                                           |
+| :------------------------------------------------------------------- | :----------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
+| `HTTP 000` en un `curl`                                              | El servidor no está levantado, o la URL es un marcador | Levantar el backend, o sustituir el marcador por la URL real                                       |
+| `Cannot find package 'esbuild'`                                      | `node_modules` desactualizado tras un `git pull`       | `pnpm install`                                                                                     |
+| `Cannot find module ... prettier`                                    | `node_modules` instalado en otro sistema operativo     | Reinstalar en el entorno que se vaya a usar, y no alternar                                         |
+| `ENOENT: uv_cwd`                                                     | El shell perdió su directorio de trabajo               | `cd` con la ruta absoluta, o abrir otra terminal                                                   |
+| `No function matches given --only filters`                           | Falta el segmento del codebase en el filtro            | `--only functions:api:<nombre>`                                                                    |
+| `INVALID_ARGUMENT` con `Unexpected token` al llamar a Google         | PowerShell deformó el JSON en línea                    | Pasar el cuerpo en un archivo con `-d "@archivo"`                                                  |
+| `403` con `ip_not_allowed` sin haber cambiado nada                   | `IP_WHITELIST` vacío, o la IP de la red cambió         | Agregar la IP actual a la lista                                                                    |
+| `500` y en el log `FAILED_PRECONDITION: The query requires an index` | Falta un índice compuesto en `firestore.indexes.json`  | Declararlo en el archivo y `deploy --only firestore:indexes`, no crearlo desde el enlace del error |
+| `500` y en el log `That index is currently building`                 | El índice existe pero aún se construye                 | Esperar a que aparezca como _Habilitado_ en la consola                                             |
+| `403 SERVICE_DISABLED` desde Places API                              | Se habilitó la Places API heredada                     | Habilitar **Places API (New)**                                                                     |
+| `Command failed with signal "SIGINT"` al pulsar `Ctrl+C`             | Ninguna: pnpm reporta la señal como fallo              | Ninguna                                                                                            |
