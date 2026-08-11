@@ -1052,16 +1052,16 @@ Entregable de la Semana 1. Las capturas se guardan en `docs/images/` y se enlaza
 
 De la Semana 2, cuyo entregable es una colección con datos reales:
 
-| Evidencia                       | Captura                                                     | Qué se comprueba en ella                                                                |
-| :------------------------------ | :---------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
-| Colección `places` en Firestore | [firestore-places.png](images/firestore-places.png)         | Documentos identificados por su `placeId` y con los campos del modelo                   |
-| Registro de la sincronización   | [firestore-import-run.png](images/firestore-import-run.png) | `importRuns` con páginas recorridas, elementos traídos y persistidos                    |
-| Corrida completa del catálogo   | [campaign-run.png](images/campaign-run.png)                 | 770 sincronizaciones sin fallos, el total de documentos únicos y el reparto por zona    |
-| Costo real de la campaña        | Pendiente: `images/billing-campaign-cost.png`               | Informe de facturación agrupado por SKU, para contrastar contra los 18.90 USD aprobados |
+| Evidencia                       | Captura                                                       | Qué se comprueba en ella                                                                 |
+| :------------------------------ | :------------------------------------------------------------ | :--------------------------------------------------------------------------------------- |
+| Colección `places` en Firestore | [firestore-places.png](images/firestore-places.png)           | Documentos identificados por su `placeId` y con los campos del modelo                    |
+| Registro de la sincronización   | [firestore-import-run.png](images/firestore-import-run.png)   | `importRuns` con páginas recorridas, elementos traídos y persistidos                     |
+| Corrida completa del catálogo   | [campaign-run.png](images/campaign-run.png)                   | 770 sincronizaciones sin fallos, el total de documentos únicos y el reparto por zona     |
+| Costo real de la campaña        | [billing-campaign-cost.png](images/billing-campaign-cost.png) | Informe agrupado por SKU: 1,932 llamadas Enterprise, 32.62 USD absorbidos por el crédito |
 
 El registro de la sincronización acredita algo que la colección de lugares por sí sola no muestra: que el recorrido respetó el tope de dos páginas y que cada dato llegó de una keyword declarada, no inferida.
 
-La evidencia de costo queda pendiente por una razón que conviene anotar: **los informes de facturación tardan hasta 24 horas**. Consultados justo después de la campaña seguían mostrando dos llamadas y cero dólares, cuando la corrida había hecho alrededor de mil quinientas. Capturar ese cero habría documentado que la campaña salió gratis cuando lo único cierto era que el dato no había llegado.
+La evidencia de costo llegó un día después que el resto, por una razón que conviene anotar: **los informes de facturación tardan hasta 24 horas**. Consultados justo después de la campaña seguían mostrando cuatro llamadas y cero dólares, cuando la corrida había hecho cerca de mil quinientas. Capturar ese cero habría documentado que la campaña salió gratis cuando lo único cierto era que el dato no había llegado.
 
 Las alertas del 50% y del 90% no son dos presupuestos sino dos umbrales de uno solo, de modo que una única captura de la lista de presupuestos las acredita a ambas: muestra a la vez el nombre, el proyecto al que se aplica, los tres umbrales y el consumo acumulado.
 
@@ -1373,6 +1373,30 @@ Dos límites distintos, que no deben confundirse:
 
 La justificación es que la cobertura pesa un 20% en la evaluación y esos 18.90 USD compran entre un 15% y un 20% más de registros por combinación, según midió la verificación de variantes. Renunciar a ese gasto no ahorra nada aprovechable: el crédito vence el 16 de octubre de 2026 y no gastarlo no lo convierte en otra cosa.
 
+#### Costo real, contrastado contra lo aprobado
+
+El informe de facturación del mes, agrupado por SKU, cierra el ciclo: se estimó antes de gastar y se midió después.
+
+| Concepto                   | Aprobado  | Real          |
+| :------------------------- | :-------- | :------------ |
+| Llamadas al SKU Enterprise | 1,540     | **1,932**     |
+| Gratuitas del mes          | 1,000     | 1,000         |
+| Facturables                | 540       | **932**       |
+| Costo                      | 18.90 USD | **32.62 USD** |
+| Absorbido por el crédito   | —         | −32.62 USD    |
+| Pagado                     | —         | 0.00 USD      |
+
+Las cifras cuadran al centavo: 932 × 0.035 son 32.62. El precio del SKU que se verificó en la consola queda así confirmado con factura y no con documentación, y de paso confirma que las 1,000 llamadas gratuitas mensuales se aplican como se esperaba.
+
+**Se gastó un 73% más de lo aprobado**, y la causa no fue una estimación errada sino que la campaña se ejecutó dos veces. La primera corrió sobre el código con los defectos de zona y de cooldown; al corregirlos hubo que vaciar las colecciones y repetirla entera. Esas 392 llamadas de diferencia, más los diagnósticos manuales, son el precio de haber gastado antes de comprobar el adaptador contra Firestore real.
+
+Conviene decirlo con el número delante: **13.72 USD** es lo que costó no tener pruebas de integración cuando se ejecutó la primera campaña. Aquí lo absorbió el crédito de la prueba gratuita; en una cuenta de pago habría sido un cargo. Es la justificación más concreta que tiene la suite de integración que se escribió después.
+
+Dos datos más del mismo informe, que valen por lo que descartan:
+
+- **Text Search Pro: 29 llamadas, 0.00 USD.** Son las comprobaciones manuales de la key. Pedir solo identificador, nombre y dirección las mantuvo en el SKU barato, con 5,000 gratuitas al mes, en vez de consumir presupuesto del Enterprise.
+- **Firestore: 33,932 lecturas, 16,205 escrituras y 803 borrados, todo en 0.00 USD.** La campaña completa cabe dentro de la capa gratuita. El gasto del proyecto está íntegramente en Places API y en ningún otro servicio, lo que valida que el control de costos apuntara solo ahí.
+
 **No se amplía el alcance más allá del catálogo.** Sincronizar zonas o especialidades que el contrato no declara produciría datos que la interfaz no puede pedir: gasto sin destino.
 
 Dos condiciones de ejecución, que no son opcionales:
@@ -1394,7 +1418,7 @@ Las tres correcciones aplicadas: el cooldown se cierra por keyword y zona, la om
 
 Las 770 combinaciones de especialidad, variante y zona no se disparan a mano. El operador ejecuta un script que recorre el catálogo e invoca `POST /api/v1/place-imports` por cada combinación. Sigue siendo una acción deliberada y no un proceso programado, y como el cooldown opera por keyword y zona, un recorrido de combinaciones distintas no lo activa.
 
-El script todavía no existe. Cuando se escriba debe respetar la cuota por minuto, que está en 60 solicitudes: a dos llamadas por sincronización, el recorrido no puede superar 30 sincronizaciones por minuto sin empezar a recibir `429`. Con ese ritmo la campaña completa tarda unos 26 minutos.
+El script es `apps/backend/scripts/runCampaign.mjs`. Respeta la cuota por minuto, que está en 60 solicitudes: a dos llamadas por sincronización, el recorrido no puede superar 30 sincronizaciones por minuto sin empezar a recibir `429`, así que va a 25 y la campaña completa tarda unos 31 minutos. Guarda el progreso por combinación para poder reanudarse, y aborta tras tres fallos seguidos en vez de seguir gastando.
 
 ### Cobertura que queda fuera
 
