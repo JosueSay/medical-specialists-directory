@@ -970,7 +970,7 @@ Toda clave nueva se agrega a los dos diccionarios en el mismo Pull Request. Si f
 | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Acceso al servicio    | Whitelist de IPs aplicada en middleware antes de cualquier controlador                                                                                                                                  |
 | API key de Google     | Leída de variables de entorno o Secret Manager; nunca versionada ni enviada al cliente                                                                                                                  |
-| Restricción de la key | Restringida en la consola de GCP para funcionar solo desde las IPs del proyecto, y limitada a Places API                                                                                                |
+| Restricción de la key | Dos keys, ambas limitadas a Places API (New): la de desarrollo, restringida además por las IPs del equipo; la del despliegue, sin restricción de red porque la IP de salida de la función es variable   |
 | Transporte            | HTTPS obligatorio                                                                                                                                                                                       |
 | Superficie expuesta   | La UI solo conoce `GET /api/v1/places`. El endpoint de sincronización no se expone en la interfaz ni tiene botón, porque cada invocación tiene costo real y un control visible sería un vector de gasto |
 | Costo                 | Tope de 20 resultados por sincronización, cooldown por keyword y cuota diaria en la consola de APIs                                                                                                     |
@@ -996,7 +996,31 @@ La razón que decide es estructural, no de comodidad. Un endpoint de administrac
 
 Cambiar de red implica editar un documento en la consola. Es un costo operativo menor frente a mantener un endpoint sin protección de red y con un secreto que no distingue quién lo usó.
 
-Cloud Armor se contempla como alternativa avanzada al middleware de whitelist. No es requerido para nota completa y su adopción queda pendiente de decisión del equipo; si se implementa, se documenta la diferencia frente al middleware.
+### Cloud Armor: evaluado y descartado
+
+El enunciado ofrece Cloud Armor como alternativa avanzada al middleware, sin exigirlo para nota completa. **El proyecto lo descarta.** El control de acceso queda en el middleware, que es donde ya está implementado, probado y documentado.
+
+La razón que decide no es el costo, sino dónde se puede aplicar cada uno.
+
+|                        | Middleware de whitelist, adoptado                                   | Cloud Armor, descartado                                                       |
+| :--------------------- | :------------------------------------------------------------------ | :---------------------------------------------------------------------------- |
+| Dónde actúa            | Dentro de la función, antes de cualquier controlador                | En el borde, sobre el servicio de backend de un balanceador de carga          |
+| Qué exige desplegar    | Nada: es código del propio servicio                                 | Un balanceador de aplicación externo con un NEG sin servidor hacia la función |
+| Costo fijo mensual     | Ninguno                                                             | Del orden de 25 USD entre la regla de reenvío y la política, se use o no      |
+| Petición no autorizada | Consume una invocación de la función y se rechaza con `403`         | Se corta antes de llegar a la función: no consume invocación                  |
+| Administración         | Documento de Firestore, editable desde la consola sin redesplegar   | Reglas de la política, editables desde la consola sin redesplegar             |
+| Protección volumétrica | Ninguna más allá del límite por IP, que vive en memoria del proceso | Filtrado L7 y mitigación de DDoS gestionada por Google                        |
+
+**Cloud Armor no se puede aplicar a este despliegue tal como está.** No es una política que se active sobre Firebase Hosting ni sobre una función HTTPS: se adjunta al servicio de backend de un balanceador de carga de aplicación externo. Adoptarlo significaría poner un balanceador delante de la función, exponerla a través de un grupo de puntos finales de red sin servidor y mover el dominio de la demo a ese balanceador, porque el `rewrite` de `/api/**` que hoy sirve Hosting seguiría alcanzando la función por su propia URL y quedaría fuera de la política. Es un cambio de topología de despliegue completo, en la última semana del proyecto, para sustituir un control que ya cumple RNF-01 con evidencia.
+
+El costo refuerza la decisión sin ser el argumento principal. La regla de reenvío del balanceador y la política de Cloud Armor suman un cargo fijo mensual que se paga aunque nadie consulte el directorio, en un proyecto cuyo consumo real cabe hoy en el umbral gratuito de Places API y cuya factura la asume la cuenta personal de un integrante.
+
+Lo que se pierde al descartarlo, y conviene decirlo en lugar de omitirlo:
+
+- **La petición no autorizada llega a costar.** El `403` lo emite la función, de modo que una IP rechazada consume igualmente una invocación, y si la instancia estaba fría, también su arranque. Cloud Armor cortaría antes. Con el tráfico de este proyecto la diferencia es despreciable; con tráfico hostil sostenido, no.
+- **No hay defensa volumétrica.** El límite de peticiones por IP vive en la memoria del proceso y no coordina entre instancias, así que el tope efectivo se multiplica por el número de instancias activas. Es una defensa en profundidad barata, no una mitigación de DDoS.
+
+La condición que cambiaría la decisión es concreta: si el servicio pasara a operación real, con dominio propio y un balanceador ya presente por otras razones, la lista de IPs y el límite de peticiones deberían mudarse a Cloud Armor. Ahí el costo fijo se diluye y el filtrado en el borde deja de ser un lujo. Mientras el despliegue sea Hosting más una función, el middleware es el lugar correcto.
 
 ## Control de costos
 

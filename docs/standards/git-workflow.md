@@ -78,7 +78,7 @@ Un tag por entrega semanal, para dejar trazable qué existía en cada evaluació
 | `v0.1.0` | Semana 1: infraestructura, whitelist y despliegue inicial |
 | `v0.2.0` | Semana 2: recolección operativa y datos reales            |
 | `v0.3.0` | Semana 3: API paginada y UI desplegada                    |
-| `v1.0.0` | Semana 4: entrega final                                   |
+| `v0.4.0` | Semana 4: entrega final                                   |
 
 ```bash
 git tag -a v0.1.0 -m "Semana 1: infraestructura y whitelist"

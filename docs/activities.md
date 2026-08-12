@@ -181,7 +181,9 @@ El despliegue se hizo dos veces y en proyectos distintos, cosa que conviene expl
 
 Que el despliegue se reprodujera en un proyecto limpio siguiendo solo el runbook es, de paso, la comprobación de que ese documento sirve: los dos únicos huecos que aparecieron fueron el recorrido de consola hasta Secret Manager y la estructura del documento de whitelist, ya incorporados.
 
-Pendiente: agregar a la whitelist las direcciones de P1, P2 y P4 y la del aula antes de la demo en vivo; decisión documentada sobre Cloud Armor (P3-10); tag de versión semanal.
+**P3-10 resuelto**: Cloud Armor se evaluó y se descartó, con el razonamiento y lo que se pierde al hacerlo en [design.md](design.md#cloud-armor-evaluado-y-descartado).
+
+Pendiente: agregar a la whitelist las direcciones de P1, P2 y P4 y la del aula el mismo día de la demo en vivo. Las entradas caducan solas, porque el proveedor rota tanto la IPv4 como el prefijo IPv6 de cada red; una lista cargada con antelación llega vencida a la demo.
 
 ## P4. Frontend y documentación
 
@@ -291,7 +293,7 @@ Un tag por entrega semanal, para dejar trazable qué existía en cada evaluació
 | `v0.1.0` | Semana 1: infraestructura, whitelist y `hello world` |
 | `v0.2.0` | Semana 2: recolección operativa y datos reales       |
 | `v0.3.0` | Semana 3: API paginada y UI desplegada               |
-| `v1.0.0` | Semana 4: entrega final                              |
+| `v0.4.0` | Semana 4: entrega final                              |
 
 ## Definición de hecho
 
@@ -304,22 +306,22 @@ Una tarea se considera terminada cuando cumple todo lo siguiente:
 
 ## Pendientes de definición
 
-| Pendiente                                                                                                                                                                                                   | Responsable de proponer | Fecha límite |
-| :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :----------- |
-| ~~Precio real del SKU Enterprise de Text Search~~ **Resuelto**: 35.00 USD por 1,000 llamadas, con 1,000 gratuitas al mes                                                                                    | P3                      | Semana 1     |
-| ~~Valor de la cuota diaria de Places API~~ **Resuelto**: 200 por día y 60 por minuto sobre `SearchTextRequest`                                                                                              | P3                      | Semana 1     |
-| ~~Vía de edición de la whitelist~~ **Resuelto**: documento de Firestore editable desde la consola, sin endpoint                                                                                             | P3                      | Semana 1     |
-| ~~Prueba de forma agentiva contra disciplina~~ **Resuelta**: el agentivo aporta un 15% de registros exclusivos y se recupera                                                                                | P1                      | Semana 2     |
-| ~~Prueba de diacríticos~~ **Resuelta**: 95% de coincidencia, el eje ortográfico se elimina                                                                                                                  | P1                      | Semana 2     |
-| ~~Verificar el agentivo en las nueve especialidades restantes~~ **Resuelto**: las diez lo conservan                                                                                                         | P1                      | Semana 2     |
-| ~~Si `ortopedia` aporta algo frente a `ortopedista`~~ **Resuelto**: aporta 2 exclusivos, se conserva                                                                                                        | P3, como coordinador    | Semana 2     |
-| ~~Si `medico general` se acota o se asume el ruido~~ **Resuelto**: se descarta la forma agentiva por precisión                                                                                              | P3, como coordinador    | Semana 2     |
-| ~~Tabla de variantes por especialidad, validada~~ **Resuelta**: verificada con datos en las diez                                                                                                            | P1 y P4                 | Semana 2     |
-| ~~Presupuesto de la corrida completa~~ **Aprobado**: 18.90 USD, 6.3% del crédito                                                                                                                            | P3, como coordinador    | Semana 2     |
-| ~~Script de campaña que recorra el catálogo~~ **Hecho**: `apps/backend/scripts/runCampaign.mjs`, con progreso reanudable, 25 sincronizaciones por minuto y corte tras tres fallos seguidos                  | P3                      | Semana 2     |
-| Rehacer la medición de cobertura por especialidad, que se hizo sobre datos con la zona y el cooldown defectuosos                                                                                            | P1                      | Semana 3     |
-| ~~Corregir la búsqueda por prefijo si el equipo decidiera recuperar el filtro de texto~~ **Cerrado**: P2 descarta recuperarlo, no hay tiempo en el curso y el catálogo cerrado cubre el requisito           | P2                      | Semana 3     |
-| ~~Valores de `PLACE_TTL`, `PLACE_RETENTION` y `SYNC_COOLDOWN` para demo~~ **Validados**: 30 días, 90 días y 60 minutos. La ejecución automática de la purga queda fuera de alcance, como el filtro de texto | P2 y P3                 | Semana 3     |
-| ~~Finales de línea inconsistentes entre Windows, WSL y macOS~~ **Resuelto**: `.gitattributes` con `text=auto eol=lf`. Adoptarlo no cambió nada de lo versionado, porque el índice ya estaba al 100% en LF   | P3                      | Semana 3     |
-| ~~Paso de CI que rechace credenciales en archivos versionados~~ **Descartado**: P3-06 se sostiene en Secret Manager y en la revisión de código; la comprobación habría sido una red y no un control         | P3                      | Semana 3     |
-| Adopción o descarte de Cloud Armor                                                                                                                                                                          | P3                      | Semana 3     |
+| Pendiente                                                                                                                                                                                                       | Responsable de proponer | Fecha límite |
+| :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :----------- |
+| ~~Precio real del SKU Enterprise de Text Search~~ **Resuelto**: 35.00 USD por 1,000 llamadas, con 1,000 gratuitas al mes                                                                                        | P3                      | Semana 1     |
+| ~~Valor de la cuota diaria de Places API~~ **Resuelto**: 200 por día y 60 por minuto sobre `SearchTextRequest`                                                                                                  | P3                      | Semana 1     |
+| ~~Vía de edición de la whitelist~~ **Resuelto**: documento de Firestore editable desde la consola, sin endpoint                                                                                                 | P3                      | Semana 1     |
+| ~~Prueba de forma agentiva contra disciplina~~ **Resuelta**: el agentivo aporta un 15% de registros exclusivos y se recupera                                                                                    | P1                      | Semana 2     |
+| ~~Prueba de diacríticos~~ **Resuelta**: 95% de coincidencia, el eje ortográfico se elimina                                                                                                                      | P1                      | Semana 2     |
+| ~~Verificar el agentivo en las nueve especialidades restantes~~ **Resuelto**: las diez lo conservan                                                                                                             | P1                      | Semana 2     |
+| ~~Si `ortopedia` aporta algo frente a `ortopedista`~~ **Resuelto**: aporta 2 exclusivos, se conserva                                                                                                            | P3, como coordinador    | Semana 2     |
+| ~~Si `medico general` se acota o se asume el ruido~~ **Resuelto**: se descarta la forma agentiva por precisión                                                                                                  | P3, como coordinador    | Semana 2     |
+| ~~Tabla de variantes por especialidad, validada~~ **Resuelta**: verificada con datos en las diez                                                                                                                | P1 y P4                 | Semana 2     |
+| ~~Presupuesto de la corrida completa~~ **Aprobado**: 18.90 USD, 6.3% del crédito                                                                                                                                | P3, como coordinador    | Semana 2     |
+| ~~Script de campaña que recorra el catálogo~~ **Hecho**: `apps/backend/scripts/runCampaign.mjs`, con progreso reanudable, 25 sincronizaciones por minuto y corte tras tres fallos seguidos                      | P3                      | Semana 2     |
+| Rehacer la medición de cobertura por especialidad, que se hizo sobre datos con la zona y el cooldown defectuosos                                                                                                | P1                      | Semana 3     |
+| ~~Corregir la búsqueda por prefijo si el equipo decidiera recuperar el filtro de texto~~ **Cerrado**: P2 descarta recuperarlo, no hay tiempo en el curso y el catálogo cerrado cubre el requisito               | P2                      | Semana 3     |
+| ~~Valores de `PLACE_TTL`, `PLACE_RETENTION` y `SYNC_COOLDOWN` para demo~~ **Validados**: 30 días, 90 días y 60 minutos. La ejecución automática de la purga queda fuera de alcance, como el filtro de texto     | P2 y P3                 | Semana 3     |
+| ~~Finales de línea inconsistentes entre Windows, WSL y macOS~~ **Resuelto**: `.gitattributes` con `text=auto eol=lf`. Adoptarlo no cambió nada de lo versionado, porque el índice ya estaba al 100% en LF       | P3                      | Semana 3     |
+| ~~Paso de CI que rechace credenciales en archivos versionados~~ **Descartado**: P3-06 se sostiene en Secret Manager y en la revisión de código; la comprobación habría sido una red y no un control             | P3                      | Semana 3     |
+| ~~Adopción o descarte de Cloud Armor~~ **Descartado**: exige un balanceador de carga delante de la función, que este despliegue no tiene, y un cargo fijo mensual; el middleware ya cumple RNF-01 con evidencia | P3                      | Semana 3     |
